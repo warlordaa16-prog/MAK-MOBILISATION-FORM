@@ -582,6 +582,84 @@ export class LocalStorageManager {
     };
   }
 
+  /**
+   * Generates public auto summation for active mobilizers and overview displays
+   */
+  static getSummation(forUniversity?: string | null) {
+    this.init();
+
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const todayDate = `${day}/${month}/${year}`;
+
+    const byUniversity: Record<string, number> = {
+      'Kampala International University (KIU)': 0,
+      'Cavendish University Uganda': 0,
+      'International University of East Africa (IUEA)': 0,
+      'Clarke International University (CIU)': 0,
+      'King Caesar University (KCU)': 0,
+    };
+
+    const todayByUniversity: Record<string, number> = {
+      'Kampala International University (KIU)': 0,
+      'Cavendish University Uganda': 0,
+      'International University of East Africa (IUEA)': 0,
+      'Clarke International University (CIU)': 0,
+      'King Caesar University (KCU)': 0,
+    };
+
+    let todayTotal = 0;
+    let totalSynced = 0;
+
+    for (const e of this.entries) {
+      if (byUniversity[e.university] !== undefined) {
+        byUniversity[e.university]++;
+      } else {
+        byUniversity[e.university] = 1;
+      }
+
+      if (e.date === todayDate) {
+        todayTotal++;
+        if (todayByUniversity[e.university] !== undefined) {
+          todayByUniversity[e.university]++;
+        } else {
+          todayByUniversity[e.university] = 1;
+        }
+      }
+
+      if (e.syncedToGoogleSheets) {
+        totalSynced++;
+      }
+    }
+
+    const last = this.entries.length > 0 ? this.entries[this.entries.length - 1] : null;
+    const activeUnivTotal = forUniversity ? (byUniversity[forUniversity] || 0) : 0;
+    const activeUnivToday = forUniversity ? (todayByUniversity[forUniversity] || 0) : 0;
+
+    return {
+      grandTotal: this.entries.length,
+      todayTotal,
+      totalSynced,
+      totalPending: this.entries.length - totalSynced,
+      activeUniversityTotal: activeUnivTotal,
+      activeUniversityToday: activeUnivToday,
+      byUniversity,
+      todayByUniversity,
+      lastEntry: last
+        ? {
+            id: last.id,
+            fullName: last.fullName,
+            university: last.university,
+            time: last.time,
+            date: last.date,
+          }
+        : null,
+      todayDate,
+    };
+  }
+
   static async syncAllToGoogleSheets(forUniversity?: string | null): Promise<{ syncedCount: number; errors: string[] }> {
     this.init();
     if (!GoogleSheetsService.isConfigured()) {

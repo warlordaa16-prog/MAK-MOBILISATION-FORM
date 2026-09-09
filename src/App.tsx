@@ -12,6 +12,7 @@ import { SessionCounter } from './components/SessionCounter';
 import { RecentEntriesList } from './components/RecentEntriesList';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AdminDashboard } from './components/AdminDashboard';
+import { DataSummation } from './components/DataSummation';
 import { UniversityName, MobilizationEntry } from './types';
 import { OfflineQueueService } from './services/offlineQueue';
 import { FileSpreadsheet, ShieldCheck, Wifi } from 'lucide-react';
@@ -29,6 +30,8 @@ export default function App() {
   const [recentEntries, setRecentEntries] = useState<MobilizationEntry[]>(() => {
     return OfflineQueueService.getRecentEntries();
   });
+
+  const [lastSavedEntry, setLastSavedEntry] = useState<MobilizationEntry | null>(null);
 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
@@ -79,6 +82,9 @@ export default function App() {
     const nextCount = OfflineQueueService.incrementSessionCounter();
     setSessionCount(nextCount);
 
+    // Track last saved entry for auto summation trigger
+    setLastSavedEntry(entry);
+
     // Add to recent entries
     OfflineQueueService.addRecentEntry(entry);
     setRecentEntries((prev) => [entry, ...prev.filter((e) => e.id !== entry.id)].slice(0, 10));
@@ -115,11 +121,20 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-3xl w-full mx-auto pb-12 pt-2 sm:pt-4 px-2 sm:px-4">
         {!selectedUniversity ? (
-          /* Step 1: Campus Selection */
-          <UniversitySelector
-            selectedUniversity={selectedUniversity}
-            onSelect={handleUniversitySelect}
-          />
+          /* Step 1: Campus Selection & Campaign Overview Summation */
+          <div className="space-y-4">
+            <UniversitySelector
+              selectedUniversity={selectedUniversity}
+              onSelect={handleUniversitySelect}
+            />
+
+            {/* Campaign-wide Auto Summation */}
+            <DataSummation
+              selectedUniversity={null}
+              sessionCount={sessionCount}
+              lastSavedEntry={lastSavedEntry}
+            />
+          </div>
         ) : (
           /* Step 2: High-Speed Repeated Data Entry Workflow */
           <div className="space-y-3">
@@ -128,6 +143,13 @@ export default function App() {
               selectedUniversity={selectedUniversity}
               onSwitchUniversity={handleSwitchUniversity}
               onEntrySaved={handleEntrySaved}
+            />
+
+            {/* Live Auto Summation of Data Entered */}
+            <DataSummation
+              selectedUniversity={selectedUniversity}
+              sessionCount={sessionCount}
+              lastSavedEntry={lastSavedEntry}
             />
 
             {/* Session Activity Counter */}

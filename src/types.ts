@@ -128,3 +128,23 @@ export interface GoogleSheetsConfigStatus {
   lastError?: string;
   totalSyncedRows?: number;
 }
+
+export interface DataSummationSummary {
+  grandTotal: number;
+  todayTotal: number;
+  totalSynced: number;
+  totalPending: number;
+  activeUniversityTotal: number;
+  activeUniversityToday: number;
+  byUniversity: Record<string, number>;
+  todayByUniversity: Record<string, number>;
+  lastEntry?: {
+    id: string;
+    fullName: string;
+    university: string;
+    time: string;
+    date: string;
+  } | null;
+  todayDate?: string;
+}
+

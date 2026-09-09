@@ -262,6 +262,13 @@ async function startServer() {
     res.json({ success: true, entries: recent });
   });
 
+  // 3.1 Get Live Auto Summation of Data Entered
+  app.get('/api/entries/summation', (req, res) => {
+    const university = req.query.university ? String(req.query.university) : undefined;
+    const summary = LocalStorageManager.getSummation(university && university !== 'all' ? university : null);
+    res.json({ success: true, ...summary });
+  });
+
   // 4. Batch sync queued offline entries
   app.post('/api/entries/sync-batch', async (req, res) => {
     try {
