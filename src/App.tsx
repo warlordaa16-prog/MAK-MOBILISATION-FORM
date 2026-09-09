@@ -1,0 +1,180 @@
+/**
+ * University Mobilization Data Collection System
+ * Rapid, mobile-first data-collection platform for university mobilizers
+ * contributing to a central Google Sheet.
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Header } from './components/Header';
+import { UniversitySelector } from './components/UniversitySelector';
+import { MobilizationForm } from './components/MobilizationForm';
+import { SessionCounter } from './components/SessionCounter';
+import { RecentEntriesList } from './components/RecentEntriesList';
+import { OfflineIndicator } from './components/OfflineIndicator';
+import { AdminDashboard } from './components/AdminDashboard';
+import { UniversityName, MobilizationEntry } from './types';
+import { OfflineQueueService } from './services/offlineQueue';
+import { FileSpreadsheet, ShieldCheck, Wifi } from 'lucide-react';
+
+export default function App() {
+  const [selectedUniversity, setSelectedUniversity] = useState<UniversityName | null>(() => {
+    const saved = OfflineQueueService.getSelectedUniversity();
+    return (saved as UniversityName) || null;
+  });
+
+  const [sessionCount, setSessionCount] = useState<number>(() => {
+    return OfflineQueueService.getSessionCounter();
+  });
+
+  const [recentEntries, setRecentEntries] = useState<MobilizationEntry[]>(() => {
+    return OfflineQueueService.getRecentEntries();
+  });
+
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    return !!localStorage.getItem('univmob_admin_token');
+  });
+
+  // Load server recent entries on mount
+  useEffect(() => {
+    fetchRecentEntries();
+
+    const unsubscribe = OfflineQueueService.subscribe(() => {
+      setSessionCount(OfflineQueueService.getSessionCounter());
+      setRecentEntries(OfflineQueueService.getRecentEntries());
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const fetchRecentEntries = async () => {
+    try {
+      const res = await fetch('/api/entries/recent?limit=10');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.entries && Array.isArray(data.entries)) {
+          // Merge with any unsynced offline items from local queue
+          const queue = OfflineQueueService.getQueue();
+          const queuedTemporary = queue.map((q) => q.temporaryEntry);
+          const combined = [...queuedTemporary, ...data.entries].slice(0, 10);
+          setRecentEntries(combined);
+        }
+      }
+    } catch {
+      // Offline fallback already loaded from localStorage
+    }
+  };
+
+  const handleUniversitySelect = (univ: UniversityName) => {
+    setSelectedUniversity(univ);
+    OfflineQueueService.setSelectedUniversity(univ);
+  };
+
+  const handleSwitchUniversity = () => {
+    setSelectedUniversity(null);
+  };
+
+  const handleEntrySaved = (entry: MobilizationEntry, isOffline: boolean) => {
+    // Increment session counter
+    const nextCount = OfflineQueueService.incrementSessionCounter();
+    setSessionCount(nextCount);
+
+    // Add to recent entries
+    OfflineQueueService.addRecentEntry(entry);
+    setRecentEntries((prev) => [entry, ...prev.filter((e) => e.id !== entry.id)].slice(0, 10));
+  };
+
+  const handleResetSessionCounter = () => {
+    OfflineQueueService.resetSessionCounter();
+    setSessionCount(0);
+  };
+
+  const handleAdminLoginSuccess = (token: string, admin?: any) => {
+    setIsAdminLoggedIn(true);
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('univmob_admin_token');
+    localStorage.removeItem('univmob_admin_user');
+    setIsAdminLoggedIn(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-blue-600 selection:text-white">
+      {/* App Header */}
+      <Header
+        selectedUniversity={selectedUniversity}
+        onSwitchUniversity={handleSwitchUniversity}
+        onOpenAdmin={() => setIsAdminOpen(true)}
+        isAdminLoggedIn={isAdminLoggedIn}
+      />
+
+      {/* Offline & Queue Sync Alerts */}
+      <OfflineIndicator onSyncComplete={fetchRecentEntries} />
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-3xl w-full mx-auto pb-12 pt-2 sm:pt-4 px-2 sm:px-4">
+        {!selectedUniversity ? (
+          /* Step 1: Campus Selection */
+          <UniversitySelector
+            selectedUniversity={selectedUniversity}
+            onSelect={handleUniversitySelect}
+          />
+        ) : (
+          /* Step 2: High-Speed Repeated Data Entry Workflow */
+          <div className="space-y-3">
+            {/* The Rapid Entry Form */}
+            <MobilizationForm
+              selectedUniversity={selectedUniversity}
+              onSwitchUniversity={handleSwitchUniversity}
+              onEntrySaved={handleEntrySaved}
+            />
+
+            {/* Session Activity Counter */}
+            <SessionCounter
+              count={sessionCount}
+              selectedUniversity={selectedUniversity}
+              onResetCounter={handleResetSessionCounter}
+            />
+
+            {/* Recent Mobilized Contacts */}
+            <RecentEntriesList entries={recentEntries} />
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
+        <div className="max-w-3xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+            <span>Central Google Sheets Mobilization Platform</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsAdminOpen(true)}
+              className="text-slate-600 hover:text-slate-900 transition underline underline-offset-2 cursor-pointer"
+            >
+              Admin Dashboard
+            </button>
+            <span>•</span>
+            <span className="flex items-center gap-1 text-slate-600 font-medium">
+              <Wifi className="w-3 h-3 text-emerald-600" />
+              PWA & Offline Ready
+            </span>
+          </div>
+        </div>
+      </footer>
+
+      {/* Administrator Portal Modal */}
+      <AdminDashboard
+        isOpen={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+        isAdminLoggedIn={isAdminLoggedIn}
+        onLoginSuccess={handleAdminLoginSuccess}
+        onLogout={handleAdminLogout}
+      />
+    </div>
+  );
+}

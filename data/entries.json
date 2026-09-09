@@ -1,0 +1,134 @@
+[
+  {
+    "id": "1",
+    "fullName": "John Baptist Mukasa",
+    "telephone": "0701234567",
+    "university": "Kampala International University (KIU)",
+    "date": "08/09/2026",
+    "time": "09:15",
+    "timestamp": "2026-09-08T09:15:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-08T06:15:00.000Z"
+  },
+  {
+    "id": "2",
+    "fullName": "Aisha Nakitto",
+    "telephone": "0752345678",
+    "university": "Cavendish University Uganda",
+    "date": "08/09/2026",
+    "time": "11:30",
+    "timestamp": "2026-09-08T11:30:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-08T08:30:00.000Z"
+  },
+  {
+    "id": "3",
+    "fullName": "Emmanuel Okello",
+    "telephone": "0773456789",
+    "university": "International University of East Africa (IUEA)",
+    "date": "08/09/2026",
+    "time": "14:20",
+    "timestamp": "2026-09-08T14:20:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-08T11:20:00.000Z"
+  },
+  {
+    "id": "4",
+    "fullName": "Grace Nabirye",
+    "telephone": "0784567890",
+    "university": "Clarke International University (CIU)",
+    "date": "09/09/2026",
+    "time": "08:45",
+    "timestamp": "2026-09-09T08:45:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T05:45:00.000Z"
+  },
+  {
+    "id": "5",
+    "fullName": "Moses Opolot",
+    "telephone": "0705678901",
+    "university": "King Caesar University (KCU)",
+    "date": "09/09/2026",
+    "time": "10:05",
+    "timestamp": "2026-09-09T10:05:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T07:05:00.000Z"
+  },
+  {
+    "id": "6",
+    "fullName": "Sarah Namubiru",
+    "telephone": "0751999888",
+    "university": "Kampala International University (KIU)",
+    "date": "09/09/2026",
+    "time": "09:58",
+    "timestamp": "2026-09-09T09:58:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T09:58:02.113Z"
+  },
+  {
+    "id": "7",
+    "fullName": "Sarah Duplicate",
+    "telephone": "0751999888",
+    "university": "Cavendish University Uganda",
+    "date": "09/09/2026",
+    "time": "09:58",
+    "timestamp": "2026-09-09T09:58:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T09:58:07.445Z"
+  },
+  {
+    "id": "8",
+    "fullName": "ahebwa arnible",
+    "telephone": "0771004906",
+    "university": "Kampala International University (KIU)",
+    "date": "09/09/2026",
+    "time": "10:02",
+    "timestamp": "2026-09-09T10:02:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T10:02:54.482Z"
+  },
+  {
+    "id": "9",
+    "fullName": "Grace Atuhaire",
+    "telephone": "0782345678",
+    "university": "King Caesar University (KCU)",
+    "date": "09/09/2026",
+    "time": "10:26",
+    "timestamp": "2026-09-09T10:26:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T10:26:34.587Z"
+  },
+  {
+    "id": "10",
+    "fullName": "Brian Kasoma",
+    "telephone": "0709887766",
+    "university": "Kampala International University (KIU)",
+    "date": "09/09/2026",
+    "time": "10:57",
+    "timestamp": "2026-09-09T10:57:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T10:57:28.593Z"
+  },
+  {
+    "id": "11",
+    "fullName": "Doreen Kyomuhendo",
+    "telephone": "0775112233",
+    "university": "Cavendish University Uganda",
+    "date": "09/09/2026",
+    "time": "10:57",
+    "timestamp": "2026-09-09T10:57:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T10:57:32.416Z"
+  },
+  {
+    "id": "12",
+    "fullName": "Robert Mugisha",
+    "telephone": "0781223344",
+    "university": "Clarke International University (CIU)",
+    "date": "09/09/2026",
+    "time": "11:09",
+    "timestamp": "2026-09-09T11:09:00+03:00",
+    "syncedToGoogleSheets": false,
+    "createdAt": "2026-09-09T11:09:24.009Z"
+  }
+]

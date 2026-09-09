@@ -1,0 +1,62 @@
+[
+  {
+    "id": "admin-system",
+    "username": "MOBILISATION",
+    "password": "Ignite",
+    "displayName": "Central System Administrator",
+    "role": "SYSTEM_ADMIN",
+    "university": null,
+    "universityAcronym": null,
+    "createdAt": "2026-09-09T10:23:47.648Z"
+  },
+  {
+    "id": "admin-kiu",
+    "username": "kiu_admin",
+    "password": "kiu_admin_2026",
+    "displayName": "KIU University Administrator",
+    "role": "UNIVERSITY_ADMIN",
+    "university": "Kampala International University (KIU)",
+    "universityAcronym": "KIU",
+    "createdAt": "2026-09-09T10:23:47.648Z"
+  },
+  {
+    "id": "admin-cavendish",
+    "username": "cavendish_admin",
+    "password": "cavendish_admin_2026",
+    "displayName": "Cavendish University Administrator",
+    "role": "UNIVERSITY_ADMIN",
+    "university": "Cavendish University Uganda",
+    "universityAcronym": "CAVENDISH",
+    "createdAt": "2026-09-09T10:23:47.648Z"
+  },
+  {
+    "id": "admin-iuea",
+    "username": "iuea_admin",
+    "password": "iuea_admin_2026",
+    "displayName": "IUEA University Administrator",
+    "role": "UNIVERSITY_ADMIN",
+    "university": "International University of East Africa (IUEA)",
+    "universityAcronym": "IUEA",
+    "createdAt": "2026-09-09T10:23:47.648Z"
+  },
+  {
+    "id": "admin-ciu",
+    "username": "ciu_admin",
+    "password": "ciu_admin_2026",
+    "displayName": "CIU University Administrator",
+    "role": "UNIVERSITY_ADMIN",
+    "university": "Clarke International University (CIU)",
+    "universityAcronym": "CIU",
+    "createdAt": "2026-09-09T10:23:47.648Z"
+  },
+  {
+    "id": "admin-kcu",
+    "username": "kcu_admin",
+    "password": "kcu_admin_2026",
+    "displayName": "King Caesar University Administrator",
+    "role": "UNIVERSITY_ADMIN",
+    "university": "King Caesar University (KCU)",
+    "universityAcronym": "KCU",
+    "createdAt": "2026-09-09T10:23:47.648Z"
+  }
+]

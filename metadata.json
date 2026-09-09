@@ -1,0 +1,6 @@
+{
+  "name": "University Mobilization Data Collection System",
+  "description": "Fast, mobile-first data collection system for university mobilizers to rapidly record contacts into Google Sheets with offline synchronization and real-time admin analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
