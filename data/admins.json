@@ -12,7 +12,7 @@
   {
     "id": "admin-kiu",
     "username": "kiu_admin",
-    "password": "kiu_admin_2026",
+    "password": "kiu2026",
     "displayName": "KIU University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "Kampala International University (KIU)",
@@ -21,18 +21,18 @@
   },
   {
     "id": "admin-cavendish",
-    "username": "cavendish_admin",
-    "password": "cavendish_admin_2026",
-    "displayName": "Cavendish University Administrator",
+    "username": "cuu_admin",
+    "password": "cuu2026",
+    "displayName": "CUU Cavendish University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "Cavendish University Uganda",
-    "universityAcronym": "CAVENDISH",
+    "universityAcronym": "CUU",
     "createdAt": "2026-09-09T10:23:47.648Z"
   },
   {
     "id": "admin-iuea",
     "username": "iuea_admin",
-    "password": "iuea_admin_2026",
+    "password": "iuea2026",
     "displayName": "IUEA University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "International University of East Africa (IUEA)",
@@ -42,7 +42,7 @@
   {
     "id": "admin-ciu",
     "username": "ciu_admin",
-    "password": "ciu_admin_2026",
+    "password": "ciu2026",
     "displayName": "CIU University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "Clarke International University (CIU)",
@@ -52,7 +52,7 @@
   {
     "id": "admin-kcu",
     "username": "kcu_admin",
-    "password": "kcu_admin_2026",
+    "password": "kcu2026",
     "displayName": "King Caesar University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "King Caesar University (KCU)",

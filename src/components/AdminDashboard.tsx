@@ -55,12 +55,12 @@ const UNIVERSITY_SLUGS: Record<string, string> = {
 };
 
 const DEFAULT_ACCOUNTS = [
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kiu_admin', pass: 'kiu_admin_2026', label: 'KIU Admin', univ: 'Kampala International University (KIU)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'cavendish_admin', pass: 'cavendish_admin_2026', label: 'Cavendish Admin', univ: 'Cavendish University Uganda' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'iuea_admin', pass: 'iuea_admin_2026', label: 'IUEA Admin', univ: 'International University of East Africa (IUEA)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'ciu_admin', pass: 'ciu_admin_2026', label: 'CIU Admin', univ: 'Clarke International University (CIU)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kcu_admin', pass: 'kcu_admin_2026', label: 'KCU Admin', univ: 'King Caesar University (KCU)' },
-  { role: 'SYSTEM_ADMIN' as AdminRole, username: 'admin', pass: 'mobilize2026_admin', label: 'System Admin (Central)', univ: null },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kiu_admin', pass: 'kiu2026', label: 'KIU Admin', univ: 'Kampala International University (KIU)' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'cuu_admin', pass: 'cuu2026', label: 'CUU Admin (Cavendish)', univ: 'Cavendish University Uganda' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'iuea_admin', pass: 'iuea2026', label: 'IUEA Admin', univ: 'International University of East Africa (IUEA)' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'ciu_admin', pass: 'ciu2026', label: 'CIU Admin', univ: 'Clarke International University (CIU)' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kcu_admin', pass: 'kcu2026', label: 'KCU Admin', univ: 'King Caesar University (KCU)' },
+  { role: 'SYSTEM_ADMIN' as AdminRole, username: 'MOBILISATION', pass: 'Ignite', label: 'System Admin (Central)', univ: null },
 ];
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -82,7 +82,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Login form state
   const [username, setUsername] = useState('kiu_admin');
-  const [password, setPassword] = useState('kiu_admin_2026');
+  const [password, setPassword] = useState('kiu2026');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>('kiu_admin');

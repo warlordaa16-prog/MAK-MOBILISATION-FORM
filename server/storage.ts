@@ -36,7 +36,7 @@ export const UNIVERSITY_LIST = [
 
 export const UNIVERSITY_ACRONYM_MAP: Record<string, string> = {
   'Kampala International University (KIU)': 'KIU',
-  'Cavendish University Uganda': 'CAVENDISH',
+  'Cavendish University Uganda': 'CUU',
   'International University of East Africa (IUEA)': 'IUEA',
   'Clarke International University (CIU)': 'CIU',
   'King Caesar University (KCU)': 'KCU',
@@ -145,7 +145,7 @@ export class LocalStorageManager {
       {
         id: 'admin-kiu',
         username: 'kiu_admin',
-        password: 'kiu_admin_2026',
+        password: 'kiu2026',
         displayName: 'KIU University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'Kampala International University (KIU)',
@@ -154,18 +154,18 @@ export class LocalStorageManager {
       },
       {
         id: 'admin-cavendish',
-        username: 'cavendish_admin',
-        password: 'cavendish_admin_2026',
-        displayName: 'Cavendish University Administrator',
+        username: 'cuu_admin',
+        password: 'cuu2026',
+        displayName: 'CUU Cavendish University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'Cavendish University Uganda',
-        universityAcronym: 'CAVENDISH',
+        universityAcronym: 'CUU',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'admin-iuea',
         username: 'iuea_admin',
-        password: 'iuea_admin_2026',
+        password: 'iuea2026',
         displayName: 'IUEA University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'International University of East Africa (IUEA)',
@@ -175,7 +175,7 @@ export class LocalStorageManager {
       {
         id: 'admin-ciu',
         username: 'ciu_admin',
-        password: 'ciu_admin_2026',
+        password: 'ciu2026',
         displayName: 'CIU University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'Clarke International University (CIU)',
@@ -185,7 +185,7 @@ export class LocalStorageManager {
       {
         id: 'admin-kcu',
         username: 'kcu_admin',
-        password: 'kcu_admin_2026',
+        password: 'kcu2026',
         displayName: 'King Caesar University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'King Caesar University (KCU)',
@@ -304,21 +304,30 @@ export class LocalStorageManager {
     }
 
     // Check stored admin accounts
-    const found = this.adminUsers.find(
-      (a) => a.username.toLowerCase() === u && a.password === p
-    );
+    const found = this.adminUsers.find((a) => {
+      if (a.password !== p) return false;
+      const uname = a.username.toLowerCase();
+      if (uname === u) return true;
+
+      // Short acronym aliases (e.g., 'kiu' or 'kiu_admin')
+      const slug = a.universityAcronym?.toLowerCase();
+      if (slug && (slug === u || `${slug}_admin` === u)) return true;
+
+      // Cavendish / CUU dual aliases support
+      if (a.university?.includes('Cavendish')) {
+        if (u === 'cuu' || u === 'cuu_admin' || u === 'cavendish' || u === 'cavendish_admin') {
+          return true;
+        }
+      }
+
+      return false;
+    });
 
     if (found) {
       return found;
     }
 
-    // Also support short alias usernames: e.g. "kiu" instead of "kiu_admin"
-    const aliasFound = this.adminUsers.find((a) => {
-      const slug = a.universityAcronym?.toLowerCase();
-      return slug && slug === u && a.password === p;
-    });
-
-    return aliasFound || null;
+    return null;
   }
 
   static getAdminUsers(): Omit<AdminUserRecord, 'password'>[] {
