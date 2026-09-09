@@ -218,6 +218,83 @@ export class GoogleSheetsService {
     };
   }
 
+  /**
+   * High-concurrency batch append: Groups entries by target university worksheet
+   * and appends all entries for that tab in a single Google Sheets API call.
+   * This safely handles 50+ concurrent mobilizers while conserving Google API quota.
+   */
+  static async appendBatch(entries: SheetEntryRow[]): Promise<{
+    syncedIds: string[];
+    failedIds: string[];
+    syncedByTab: Record<string, number>;
+    error?: string;
+  }> {
+    if (!this.isConfigured()) {
+      return {
+        syncedIds: [],
+        failedIds: entries.map((e) => e.id),
+        syncedByTab: {},
+        error: 'Google Sheets credentials are not configured.',
+      };
+    }
+
+    if (entries.length === 0) {
+      return { syncedIds: [], failedIds: [], syncedByTab: {} };
+    }
+
+    await this.ensureWorksheetsAndHeaders();
+    const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim()!;
+    const sheets = this.getClient();
+
+    // Group entries by designated university tab
+    const byTab: Record<string, SheetEntryRow[]> = {};
+    for (const e of entries) {
+      const tab = this.getWorksheetForUniversity(e.university);
+      if (!byTab[tab]) byTab[tab] = [];
+      byTab[tab].push(e);
+    }
+
+    const syncedIds: string[] = [];
+    const failedIds: string[] = [];
+    const syncedByTab: Record<string, number> = {};
+    let lastError: string | undefined;
+
+    for (const [tab, tabEntries] of Object.entries(byTab)) {
+      try {
+        const values = tabEntries.map((e) => [
+          e.id,
+          e.fullName,
+          e.telephone,
+          e.university,
+          e.date,
+          e.time,
+          e.timestamp,
+        ]);
+
+        await sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: `'${tab}'!A:G`,
+          valueInputOption: 'USER_ENTERED',
+          insertDataOption: 'INSERT_ROWS',
+          requestBody: { values },
+        });
+
+        for (const e of tabEntries) {
+          syncedIds.push(e.id);
+        }
+        syncedByTab[tab] = (syncedByTab[tab] || 0) + tabEntries.length;
+      } catch (err: any) {
+        console.error(`Batch append error for worksheet ${tab}:`, err?.message || err);
+        lastError = err?.message || `Failed to append batch to ${tab}`;
+        for (const e of tabEntries) {
+          failedIds.push(e.id);
+        }
+      }
+    }
+
+    return { syncedIds, failedIds, syncedByTab, error: lastError };
+  }
+
   static async testConnection(): Promise<{
     success: boolean;
     title?: string;

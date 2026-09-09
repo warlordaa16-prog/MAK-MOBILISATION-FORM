@@ -25,6 +25,10 @@ import {
   Database,
   ArrowUpDown,
   Filter,
+  Zap,
+  Activity,
+  Cpu,
+  Layers,
 } from 'lucide-react';
 import { UNIVERSITIES, UniversityName, AdminRole, AdminUser } from '../types';
 import { GoogleSheetsGuideModal } from './GoogleSheetsGuideModal';

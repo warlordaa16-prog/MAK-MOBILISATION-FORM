@@ -229,8 +229,8 @@ async function startServer() {
         }
       }
 
-      // Add to local storage & append to designated Google Sheets worksheet tab
-      const addResult = await LocalStorageManager.addEntry({
+      // Add to high-concurrency local storage & queue for background batch sync
+      const addResult = LocalStorageManager.addEntry({
         fullName: fullName.trim(),
         telephone: normalizedPhone,
         university: matchedUniversity,
@@ -241,6 +241,7 @@ async function startServer() {
         message: 'Mobilization entry saved successfully.',
         entry: addResult.entry,
         googleSheetsSynced: addResult.syncedToGoogleSheets,
+        queuedForSync: addResult.queuedForSync,
         targetTab: addResult.targetTab,
         sheetsWarning: addResult.sheetsError,
       });
@@ -286,7 +287,7 @@ async function startServer() {
           if (u.includes('KCU') || u.includes('Kumi') || u.includes('King Caesar')) {
             u = 'King Caesar University (KCU)';
           }
-          const addRes = await LocalStorageManager.addEntry({
+          const addRes = LocalStorageManager.addEntry({
             fullName: item.fullName,
             telephone: phoneResult.normalized,
             university: u,
@@ -296,6 +297,7 @@ async function startServer() {
             fullName: addRes.entry.fullName,
             success: true,
             syncedToSheets: addRes.syncedToGoogleSheets,
+            queuedForSync: addRes.queuedForSync,
           });
         } else {
           results.push({
@@ -544,6 +546,26 @@ async function startServer() {
     }
     const updated = LocalStorageManager.updateAdminPassword(username, newPassword);
     res.json({ success: updated, message: updated ? 'Password updated successfully' : 'User not found' });
+  });
+
+  // 11. High-Concurrency Mobilization Capacity & Sync Metrics
+  app.get('/api/admin/concurrency-metrics', requireAdmin, (req, res) => {
+    const metrics = LocalStorageManager.getConcurrencyMetrics();
+    res.json({ success: true, metrics });
+  });
+
+  app.post('/api/admin/flush-queue', requireAdmin, async (req, res) => {
+    const result = await LocalStorageManager.forceDrainSyncQueue();
+    res.json({ success: true, ...result });
+  });
+
+  // Graceful shutdown data flush
+  process.on('SIGTERM', () => {
+    LocalStorageManager.flushSync();
+  });
+  process.on('SIGINT', () => {
+    LocalStorageManager.flushSync();
+    process.exit(0);
   });
 
   // Vite middleware for dev or static files for prod

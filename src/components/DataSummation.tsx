@@ -115,6 +115,14 @@ export const DataSummation: React.FC<DataSummationProps> = ({
     return () => unsub();
   }, [fetchSummation]);
 
+  // Periodic polling every 10 seconds so 50+ mobilizers see live consolidated summation updates in real-time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSummation();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchSummation]);
+
   // Merge queued offline items with server summation so the math is always instantly accurate
   const calculatedSums = useMemo(() => {
     const queue = OfflineQueueService.getQueue();
