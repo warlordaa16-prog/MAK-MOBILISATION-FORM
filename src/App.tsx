@@ -11,11 +11,12 @@ import { MobilizationForm } from './components/MobilizationForm';
 import { SessionCounter } from './components/SessionCounter';
 import { RecentEntriesList } from './components/RecentEntriesList';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { OfflineOutboxModal } from './components/OfflineOutboxModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { DataSummation } from './components/DataSummation';
 import { UniversityName, MobilizationEntry } from './types';
 import { OfflineQueueService } from './services/offlineQueue';
-import { FileSpreadsheet, ShieldCheck, Wifi } from 'lucide-react';
+import { FileSpreadsheet, ShieldCheck, Wifi, CloudUpload } from 'lucide-react';
 
 export default function App() {
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityName | null>(() => {
@@ -32,6 +33,7 @@ export default function App() {
   });
 
   const [lastSavedEntry, setLastSavedEntry] = useState<MobilizationEntry | null>(null);
+  const [isOutboxOpen, setIsOutboxOpen] = useState(false);
 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
@@ -113,10 +115,18 @@ export default function App() {
         onSwitchUniversity={handleSwitchUniversity}
         onOpenAdmin={() => setIsAdminOpen(true)}
         isAdminLoggedIn={isAdminLoggedIn}
+        onOpenOutbox={() => setIsOutboxOpen(true)}
       />
 
       {/* Offline & Queue Sync Alerts */}
       <OfflineIndicator onSyncComplete={fetchRecentEntries} />
+
+      {/* Offline Outbox Modal */}
+      <OfflineOutboxModal
+        isOpen={isOutboxOpen}
+        onClose={() => setIsOutboxOpen(false)}
+        onSyncSuccess={fetchRecentEntries}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-6xl mx-auto pb-16 pt-4 sm:pt-6 px-4 sm:px-6">

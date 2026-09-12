@@ -4,6 +4,8 @@ const QUEUE_KEY = 'univmob_offline_queue';
 const RECENT_ENTRIES_KEY = 'univmob_recent_entries';
 const SESSION_COUNTER_KEY = 'univmob_session_counter';
 const SELECTED_UNIVERSITY_KEY = 'univmob_selected_university';
+const MANUAL_OFFLINE_KEY = 'univmob_manual_offline_mode';
+const SOUND_ENABLED_KEY = 'univmob_sound_feedback';
 
 export interface QueuedEntry extends SaveEntryPayload {
   queueId: string;
@@ -31,6 +33,78 @@ export class OfflineQueueService {
     });
   }
 
+  // Manual Offline Work Mode (Allows field mobilizers to intentionally work offline to save battery & data bundles)
+  static isManualOffline(): boolean {
+    try {
+      return localStorage.getItem(MANUAL_OFFLINE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  static setManualOffline(enabled: boolean) {
+    try {
+      localStorage.setItem(MANUAL_OFFLINE_KEY, enabled ? 'true' : 'false');
+    } catch {}
+    this.notify();
+  }
+
+  static toggleManualOffline(): boolean {
+    const next = !this.isManualOffline();
+    this.setManualOffline(next);
+    return next;
+  }
+
+  static isEffectivelyOffline(): boolean {
+    if (this.isManualOffline()) return true;
+    return typeof navigator !== 'undefined' && !navigator.onLine;
+  }
+
+  // Audio / Sound Feedback for rapid tactile confirmation
+  static isSoundEnabled(): boolean {
+    try {
+      const val = localStorage.getItem(SOUND_ENABLED_KEY);
+      return val === null ? true : val === 'true';
+    } catch {
+      return true;
+    }
+  }
+
+  static setSoundEnabled(enabled: boolean) {
+    try {
+      localStorage.setItem(SOUND_ENABLED_KEY, enabled ? 'true' : 'false');
+    } catch {}
+    this.notify();
+  }
+
+  static playSuccessChime(isOffline = false) {
+    if (!this.isSoundEnabled()) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      // Pitch: 880Hz (A5) for online, 660Hz (E5) for offline
+      osc.frequency.setValueAtTime(isOffline ? 659.25 : 880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(isOffline ? 880 : 1318.5, ctx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.22);
+    } catch {
+      // Audio playback silent fail
+    }
+  }
+
+  // Queue storage
   static getQueue(): QueuedEntry[] {
     try {
       const data = localStorage.getItem(QUEUE_KEY);
@@ -45,16 +119,18 @@ export class OfflineQueueService {
     const now = new Date();
     const queueId = 'queue_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
 
-    // Format local date and time
+    // Format East African / local date and time
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = now.getFullYear();
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
 
+    // Sequential clean offline ID
+    const offlineNum = queue.length + 1;
     const temporaryEntry: MobilizationEntry = {
-      id: 'OFFLINE-' + queueId.slice(-6).toUpperCase(),
-      fullName: payload.fullName,
+      id: `OFF-${String(offlineNum).padStart(3, '0')}`,
+      fullName: payload.fullName.trim(),
       telephone: payload.telephone,
       university: payload.university,
       date: `${day}/${month}/${year}`,
@@ -66,31 +142,122 @@ export class OfflineQueueService {
 
     const queuedItem: QueuedEntry = {
       ...payload,
+      fullName: payload.fullName.trim(),
       queueId,
       queuedAt: now.toISOString(),
       temporaryEntry,
     };
 
     queue.push(queuedItem);
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    try {
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    } catch (e) {
+      console.warn('Failed to store queue item', e);
+    }
 
     // Also add to recent entries marked as offline
     this.addRecentEntry(temporaryEntry);
     this.incrementSessionCounter();
+    this.playSuccessChime(true);
     this.notify();
 
     return queuedItem;
   }
 
   static removeFromQueue(queueId: string) {
-    const queue = this.getQueue().filter((item) => item.queueId !== queueId);
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    const queue = this.getQueue().filter((item) => item.queueId !== queueId && item.temporaryEntry.id !== queueId);
+    try {
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    } catch {}
     this.notify();
   }
 
   static clearQueue() {
-    localStorage.removeItem(QUEUE_KEY);
+    try {
+      localStorage.removeItem(QUEUE_KEY);
+    } catch {}
     this.notify();
+  }
+
+  // Reliable Synchronization Engine
+  static async syncQueue(): Promise<{ success: boolean; syncedCount: number; message?: string }> {
+    const queue = this.getQueue();
+    if (queue.length === 0) {
+      return { success: true, syncedCount: 0, message: 'Queue is already empty.' };
+    }
+
+    try {
+      const response = await fetch('/api/entries/sync-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries: queue }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Sync server responded with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      let successfulRemovals = 0;
+
+      if (data.results && Array.isArray(data.results)) {
+        data.results.forEach((res: any) => {
+          if (res.success) {
+            successfulRemovals++;
+            if (res.queueId) {
+              this.removeFromQueue(res.queueId);
+            }
+            if (res.entry) {
+              this.updateRecentEntryStatus(res.queueId, res.entry);
+            }
+          }
+        });
+      } else if (data.success) {
+        // Fallback: entire batch succeeded
+        this.clearQueue();
+        successfulRemovals = queue.length;
+      }
+
+      this.notify();
+      return {
+        success: true,
+        syncedCount: data.syncedCount || successfulRemovals,
+        message: `Successfully synchronized ${data.syncedCount || successfulRemovals} offline record(s) to Google Sheets!`,
+      };
+    } catch (err: any) {
+      console.warn('Sync failed:', err);
+      return {
+        success: false,
+        syncedCount: 0,
+        message: err?.message || 'Synchronization failed. Records remain safely stored locally.',
+      };
+    }
+  }
+
+  // Export queued items as CSV directly from browser
+  static exportQueueCSV() {
+    const queue = this.getQueue();
+    if (queue.length === 0) return;
+
+    const headers = ['Offline ID', 'Full Name', 'Telephone', 'University', 'Queued At'];
+    const rows = queue.map((q) => [
+      `"${q.temporaryEntry.id}"`,
+      `"${q.fullName.replace(/"/g, '""')}"`,
+      `"${q.telephone}"`,
+      `"${q.university.replace(/"/g, '""')}"`,
+      `"${q.queuedAt}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `offline_mobilization_queue_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // Recent entries for fast local display
@@ -106,8 +273,8 @@ export class OfflineQueueService {
   static addRecentEntry(entry: MobilizationEntry) {
     try {
       const recents = this.getRecentEntries();
-      // Prepend and limit to 10
-      const updated = [entry, ...recents.filter((e) => e.id !== entry.id)].slice(0, 10);
+      // Prepend and limit to 15
+      const updated = [entry, ...recents.filter((e) => e.id !== entry.id && e.telephone !== entry.telephone)].slice(0, 15);
       localStorage.setItem(RECENT_ENTRIES_KEY, JSON.stringify(updated));
       this.notify();
     } catch (e) {
@@ -119,7 +286,11 @@ export class OfflineQueueService {
     try {
       const recents = this.getRecentEntries();
       const updated = recents.map((item) => {
-        if (item.id.includes(queueIdOrOfflineId) || item.telephone === serverEntry.telephone) {
+        if (
+          item.id === queueIdOrOfflineId ||
+          item.id.includes(queueIdOrOfflineId) ||
+          item.telephone === serverEntry.telephone
+        ) {
           return {
             ...serverEntry,
             queuedOffline: false,

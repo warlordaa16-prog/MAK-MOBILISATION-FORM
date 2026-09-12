@@ -270,53 +270,78 @@ async function startServer() {
     res.json({ success: true, ...summary });
   });
 
-  // 4. Batch sync queued offline entries
-  app.post('/api/entries/sync-batch', async (req, res) => {
+  // 4. Batch sync queued offline entries (supports both /api/entries/sync-batch and /api/entries/bulk-sync)
+  const handleBatchSync = async (req: Request, res: Response) => {
     try {
-      const { entries } = req.body;
-      if (!Array.isArray(entries) || entries.length === 0) {
-        res.status(400).json({ success: false, message: 'Entries array is required' });
+      const rawEntries = req.body.entries || req.body.items || [];
+      if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
+        res.status(400).json({ success: false, message: 'Entries or items array is required' });
         return;
       }
 
       const results = [];
-      for (const item of entries) {
+      for (const item of rawEntries) {
+        const queueId = item.queueId || item.id;
         const phoneResult = normalizeUgandaPhone(item.telephone);
         if (phoneResult.isValid && item.fullName && item.university) {
           let u = ALLOWED_UNIVERSITIES.find((uName) => uName === item.university) || item.university;
           if (u.includes('KCU') || u.includes('Kumi') || u.includes('King Caesar')) {
             u = 'King Caesar University (KCU)';
           }
+
+          // Check if already registered
+          const existing = LocalStorageManager.findByPhone(phoneResult.normalized);
+          if (existing) {
+            results.push({
+              queueId,
+              id: existing.id,
+              fullName: existing.fullName,
+              success: true,
+              alreadyExisted: true,
+              syncedToSheets: existing.syncedToGoogleSheets,
+              entry: existing,
+            });
+            continue;
+          }
+
           const addRes = LocalStorageManager.addEntry({
             fullName: item.fullName,
             telephone: phoneResult.normalized,
             university: u,
           });
+
           results.push({
+            queueId,
             id: addRes.entry.id,
             fullName: addRes.entry.fullName,
             success: true,
             syncedToSheets: addRes.syncedToGoogleSheets,
             queuedForSync: addRes.queuedForSync,
+            entry: addRes.entry,
           });
         } else {
           results.push({
+            queueId,
             fullName: item.fullName,
             success: false,
-            error: 'Validation failed during sync',
+            error: phoneResult.error || 'Validation failed during sync',
           });
         }
       }
 
+      const syncedCount = results.filter((r) => r.success).length;
       res.json({
         success: true,
-        syncedCount: results.filter((r) => r.success).length,
+        syncedCount,
         results,
       });
     } catch (err: any) {
       res.status(500).json({ success: false, message: 'Sync failed', error: err?.message });
     }
-  });
+  };
+
+  app.post('/api/entries/sync-batch', handleBatchSync);
+  app.post('/api/entries/bulk-sync', handleBatchSync);
 
   // 5. Admin Authentication (Role-Based for System Admin & 5 University Admins)
   app.post('/api/admin/login', (req, res) => {
