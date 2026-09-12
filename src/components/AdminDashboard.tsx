@@ -29,8 +29,10 @@ import {
   Activity,
   Cpu,
   Layers,
+  Bell,
+  LayoutDashboard,
 } from 'lucide-react';
-import { UNIVERSITIES, UniversityName, AdminRole, AdminUser } from '../types';
+import { UNIVERSITIES, UniversityName, AdminRole, AdminUser, SchoolNotification } from '../types';
 import { GoogleSheetsGuideModal } from './GoogleSheetsGuideModal';
 import { CSVExportModal } from './CSVExportModal';
 
@@ -59,12 +61,12 @@ const UNIVERSITY_SLUGS: Record<string, string> = {
 };
 
 const DEFAULT_ACCOUNTS = [
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kiu_admin', pass: 'kiu2026', label: 'KIU Admin', univ: 'Kampala International University (KIU)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'cuu_admin', pass: 'cuu2026', label: 'CUU Admin (Cavendish)', univ: 'Cavendish University Uganda' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'iuea_admin', pass: 'iuea2026', label: 'IUEA Admin', univ: 'International University of East Africa (IUEA)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'ciu_admin', pass: 'ciu2026', label: 'CIU Admin', univ: 'Clarke International University (CIU)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kcu_admin', pass: 'kcu2026', label: 'KCU Admin', univ: 'King Caesar University (KCU)' },
-  { role: 'SYSTEM_ADMIN' as AdminRole, username: 'MOBILISATION', pass: 'Ignite', label: 'System Admin (Central)', univ: null },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kiu_admin', pass: 'KIU Ignite', label: 'KIU Admin', univ: 'Kampala International University (KIU)' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'cuu_admin', pass: 'CUU Ignite', label: 'CUU Admin (Cavendish)', univ: 'Cavendish University Uganda' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'iuea_admin', pass: 'IUEA Ignite', label: 'IUEA Admin', univ: 'International University of East Africa (IUEA)' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'ciu_admin', pass: 'CIU Ignite', label: 'CIU Admin', univ: 'Clarke International University (CIU)' },
+  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kcu_admin', pass: 'KCU Ignite', label: 'KCU Admin', univ: 'King Caesar University (KCU)' },
+  { role: 'SYSTEM_ADMIN' as AdminRole, username: 'MOBILISATION', pass: 'Super Ignite', label: 'Super Admin (Central)', univ: null },
 ];
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -86,13 +88,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Login form state
   const [username, setUsername] = useState('kiu_admin');
-  const [password, setPassword] = useState('kiu2026');
+  const [password, setPassword] = useState('KIU Ignite');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>('kiu_admin');
 
-  // Dashboard active view tab (for System Admin)
-  const [systemActiveTab, setSystemActiveTab] = useState<'overview' | 'entries' | 'sheets' | 'users' | 'settings'>('overview');
+  // Notifications state
+  const [notifications, setNotifications] = useState<SchoolNotification[]>([]);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [isTriggeringTestMilestone, setIsTriggeringTestMilestone] = useState(false);
+
+  // Unified active view tab for both University and System Admins
+  const [activeTab, setActiveTab] = useState<'overview' | 'entries' | 'sheets' | 'notifications' | 'users'>('overview');
 
   // Dashboard data state
   const [stats, setStats] = useState<any>(null);
@@ -135,6 +142,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       loadStats();
       loadEntries(1);
       loadSheetsStatus();
+      loadNotifications();
+
+      // Poll notifications and stats every 10 seconds for real-time HOD alerts
+      const interval = setInterval(() => {
+        loadNotifications();
+        loadStats();
+      }, 10000);
+      return () => clearInterval(interval);
     }
   }, [isOpen, isAdminLoggedIn]);
 
@@ -238,6 +253,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch (err) {
       console.error('Failed to load admin users:', err);
+    }
+  };
+
+  const playMilestoneChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch {
+      // AudioContext muted or unsupported
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const res = await fetch('/api/admin/notifications', { headers: getAuthHeader() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.notifications)) {
+          setNotifications(data.notifications);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    }
+  };
+
+  const handleMarkNotificationRead = async (id: string) => {
+    try {
+      await fetch('/api/admin/notifications/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ id }),
+      });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, readBy: [...n.readBy, currentAdmin?.username || ''] } : n))
+      );
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+    }
+  };
+
+  const handleTriggerTestMilestone = async () => {
+    setIsTriggeringTestMilestone(true);
+    try {
+      const targetUniv = currentAdmin?.role === 'UNIVERSITY_ADMIN' 
+        ? currentAdmin.university 
+        : 'Kampala International University (KIU)';
+      const res = await fetch('/api/admin/notifications/test-milestone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ university: targetUniv, count: 50 }),
+      });
+      if (res.ok) {
+        await loadNotifications();
+        playMilestoneChime();
+      }
+    } catch (err) {
+      console.error('Failed to trigger test milestone:', err);
+    } finally {
+      setIsTriggeringTestMilestone(false);
     }
   };
 
@@ -378,13 +471,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     >
       <div
         id="admin-dashboard-container"
-        className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-4 flex flex-col max-h-[92vh]"
+        className="relative w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-4 flex flex-col max-h-[92vh]"
       >
-        {/* Modal Top Bar */}
+        {/* Modal Top Bar - Clean and Unbranded */}
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm ${
+              className={`w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-sm ${
                 isUniversityAdmin ? 'bg-gradient-to-br from-blue-600 to-indigo-700' : 'bg-gradient-to-br from-red-600 to-rose-700'
               }`}
             >
@@ -392,47 +485,173 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-extrabold tracking-wide uppercase text-white">
-                  {isUniversityAdmin ? `${universityAcronym} Administration Portal` : 'Central System Admin Portal'}
+                <h2 className="text-sm sm:text-base font-black tracking-wide text-white">
+                  {isUniversityAdmin ? `${universityAcronym} Administration` : 'System Administration'}
                 </h2>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     isUniversityAdmin
                       ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30'
-                      : 'bg-red-500/20 text-red-300 border border-red-400/30'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
                   }`}
                 >
-                  {isUniversityAdmin ? 'University Admin' : 'System Admin'}
+                  {isUniversityAdmin ? 'Campus Admin' : 'Super Admin'}
                 </span>
               </div>
               <p className="text-xs text-slate-400 truncate max-w-sm sm:max-w-md">
-                {isUniversityAdmin ? universityFullName : 'Cross-institutional multi-university records & Google Sheets manager'}
+                {isUniversityAdmin ? universityFullName : 'All Institutions Overview'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
             {isAdminLoggedIn && (
-              <button
-                id="admin-logout-btn"
-                onClick={handleLogoutClick}
-                className="inline-flex items-center gap-1 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer"
-                title="Log out of admin session"
-              >
-                <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
+              <>
+                <button
+                  id="admin-notifications-bell-btn"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('notifications');
+                    loadNotifications();
+                  }}
+                  className="relative p-2 rounded-lg text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+                  title="HOD Milestone Notifications"
+                >
+                  <Bell className="w-4 h-4" />
+                  {notifications.filter((n) => currentAdmin && !n.readBy.includes(currentAdmin.username)).length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
+                      {notifications.filter((n) => currentAdmin && !n.readBy.includes(currentAdmin.username)).length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  id="admin-logout-btn"
+                  onClick={handleLogoutClick}
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer"
+                  title="Log out of admin session"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="hidden sm:inline font-semibold">Logout</span>
+                </button>
+              </>
             )}
 
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-800 rounded-lg transition cursor-pointer text-xl font-bold leading-none"
+              className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-800 rounded-lg transition cursor-pointer text-xl font-bold leading-none ml-1"
               title="Close Portal"
             >
               ×
             </button>
           </div>
         </div>
+
+        {/* Intuitive, Spacious Navigation Bar */}
+        {isAdminLoggedIn && (
+          <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 shrink-0 overflow-x-auto">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                  activeTab === 'overview'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Overview</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('entries');
+                  loadEntries(1);
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                  activeTab === 'entries'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{isUniversityAdmin ? 'Records' : 'All Records'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('sheets');
+                  loadSheetsStatus();
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                  activeTab === 'sheets'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Google Sheets</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('notifications');
+                  loadNotifications();
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                  activeTab === 'notifications'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5 text-amber-500" />
+                <span>Milestone Alerts</span>
+                {notifications.length > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    activeTab === 'notifications' ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {!isUniversityAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('users');
+                    loadAdminUsers();
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'users'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Admin Accounts</span>
+                </button>
+              )}
+            </div>
+
+            {/* Prominent one-click Export CSV button */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => openExportModalForUniversity(isUniversityAdmin ? universityFullName : (selectedUnivFilter === 'all' ? 'all' : selectedUnivFilter))}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-[0.98] cursor-pointer"
+                title="Export CSV"
+              >
+                <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="hidden sm:inline">Export</span> CSV
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
@@ -543,316 +762,597 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             /* ======================================================== */
             /* 2. UNIVERSITY ADMIN ISOLATED DASHBOARD                   */
             /* ======================================================== */
-            <div className="space-y-6">
-              {/* Institution Identity Hero Banner */}
-              <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white font-black text-xl flex items-center justify-center shadow-lg shrink-0 border border-blue-400/30">
-                    {universityAcronym}
+            <div className="space-y-5">
+              {/* TAB 1: OVERVIEW */}
+              {activeTab === 'overview' && (
+                <div className="space-y-5">
+                  {/* Clean Campus Header (Unbranded, spacious) */}
+                  <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-black text-lg flex items-center justify-center shadow-xs shrink-0">
+                        {universityAcronym}
+                      </div>
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                          {universityFullName}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                          <span>Worksheet Tab: <strong className="text-slate-800 font-mono bg-slate-100 px-1.5 py-0.5 rounded">{universityAcronym}</strong></span>
+                          <span>•</span>
+                          <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                            Campus Pipeline Active
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={handleSyncAll}
+                        disabled={isSyncingAll}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                        title="Sync pending records to Google Sheets"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isSyncingAll ? 'animate-spin' : ''}`} />
+                        <span>{isSyncingAll ? 'Syncing...' : 'Sync Sheet Tab'}</span>
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-blue-300">
-                        Designated University Administrator
+
+                  {syncFeedback && (
+                    <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>{syncFeedback}</span>
+                    </div>
+                  )}
+
+                  {/* HOD Milestone Daily Notification Status Banner */}
+                  {(() => {
+                    const todayCount = stats?.todayEntries ?? 0;
+                    const isMilestoneMet = todayCount >= 50;
+                    const progressPct = Math.min(100, Math.round((todayCount / 50) * 100));
+
+                    return (
+                      <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                        isMilestoneMet
+                          ? 'bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-emerald-500/50 text-white shadow-md'
+                          : 'bg-white border-slate-200 text-slate-900 shadow-xs'
+                      }`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                              isMilestoneMet ? 'bg-emerald-500 text-slate-950 font-black shadow-sm' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              <Bell className={`w-5 h-5 ${isMilestoneMet ? 'animate-bounce' : ''}`} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className={`text-xs font-black uppercase tracking-wider ${
+                                  isMilestoneMet ? 'text-emerald-400' : 'text-slate-800'
+                                }`}>
+                                  HOD Milestone Notification System
+                                </h4>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  isMilestoneMet 
+                                    ? 'bg-emerald-400 text-slate-950 animate-pulse' 
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}>
+                                  {isMilestoneMet ? '50+ MILESTONE ACTIVE' : `${todayCount}/50 TODAY`}
+                                </span>
+                              </div>
+                              <p className={`text-xs mt-1 ${isMilestoneMet ? 'text-slate-200' : 'text-slate-500'}`}>
+                                {isMilestoneMet 
+                                  ? `Congratulations! ${universityFullName} has reached ${todayCount} entries today. An official milestone alert was dispatched to school administrators & HOD.`
+                                  : `When ${universityAcronym} hits 50 entries in a day, an automated notification is instantly triggered for the ${universityAcronym} school administrator.`
+                                }
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <button
+                              type="button"
+                              onClick={handleTriggerTestMilestone}
+                              disabled={isTriggeringTestMilestone}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                                isMilestoneMet
+                                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black shadow-sm'
+                                  : 'bg-slate-900 hover:bg-slate-800 text-white'
+                              }`}
+                              title="Simulate reaching the 50-person milestone to verify notification dispatch"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>{isTriggeringTestMilestone ? 'Broadcasting...' : 'Simulate 50 Alert'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Milestone Progress Bar */}
+                        <div className="mt-3">
+                          <div className="flex justify-between text-[11px] mb-1 font-semibold">
+                            <span className={isMilestoneMet ? 'text-slate-300' : 'text-slate-500'}>
+                              Daily Target Progress (50 Entries/Day)
+                            </span>
+                            <span className={isMilestoneMet ? 'text-emerald-400 font-bold' : 'text-slate-700'}>
+                              {todayCount} / 50 ({progressPct}%)
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200/60 rounded-full h-2.5 overflow-hidden">
+                            <div
+                              style={{ width: `${progressPct}%` }}
+                              className={`h-full transition-all duration-500 ${
+                                isMilestoneMet ? 'bg-emerald-400' : 'bg-blue-600'
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Statistics Cards (Isolated to this University) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Total Mobilized
                       </span>
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-bold">
-                        Isolated Data Pipeline Active
+                      <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
+                        {stats?.totalEntries ?? totalEntries}
+                      </div>
+                      <span className="text-[11px] text-slate-500 mt-1 block">
+                        All-time for {universityAcronym}
                       </span>
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
-                      {universityFullName}
-                    </h3>
-                    <p className="text-xs text-slate-300 mt-1 flex items-center gap-1.5">
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Dedicated Google Sheet Worksheet Tab: <strong>{universityAcronym}</strong></span>
-                    </p>
+
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">
+                        Today's Mobilizations
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">
+                        {stats?.todayEntries ?? 0}
+                      </div>
+                      <span className="text-[11px] text-emerald-600/80 mt-1 block">
+                        Recorded today
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
+                        Sheets Synced
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">
+                        {stats?.totalSynced ?? 0}
+                      </div>
+                      <span className="text-[11px] text-slate-500 mt-1 block">
+                        In tab <strong>{universityAcronym}</strong>
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">
+                        Pending Sync
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black text-amber-700 mt-1">
+                        {stats?.totalUnsynced ?? 0}
+                      </div>
+                      <span className="text-[11px] text-slate-500 mt-1 block">
+                        Cached in storage
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* THE PROMINENT EXPORT CSV BUTTON FOR UNIVERSITY ADMIN */}
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <button
-                    id="univ-admin-export-csv-btn"
-                    onClick={() => openExportModalForUniversity(universityFullName)}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg shadow-red-900/40 transition active:scale-[0.99] cursor-pointer border border-red-400/40"
-                    title={`Download ${UNIVERSITY_SLUGS[universityFullName] || 'univ'}_mobilization_${new Date().toISOString().slice(0, 10)}.csv`}
-                  >
-                    <Download className="w-4 h-4 text-white stroke-[2.5]" />
-                    <span>EXPORT CSV</span>
-                  </button>
+                  {/* 2 Spacious Action Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Google Sheets Card */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Google Sheets Integration</h4>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Tab: {universityAcronym}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          All mobilization submissions from {universityFullName} are systematically routed directly into the dedicated "{universityAcronym}" worksheet.
+                        </p>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-xs text-slate-600 font-semibold">
+                          {stats?.totalSynced ?? 0} synced • {stats?.totalUnsynced ?? 0} pending
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('sheets');
+                            loadSheetsStatus();
+                          }}
+                          className="text-xs font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer"
+                        >
+                          Manage Sheets Tab →
+                        </button>
+                      </div>
+                    </div>
 
-                  <button
-                    onClick={handleSyncAll}
-                    disabled={isSyncingAll}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition cursor-pointer"
-                    title="Sync this university's pending records to Google Sheets"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isSyncingAll ? 'animate-spin' : ''}`} />
-                    <span>{isSyncingAll ? 'Syncing...' : 'Sync Tab'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {syncFeedback && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>{syncFeedback}</span>
+                    {/* Records Management Card */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-blue-600" />
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Mobilization Records</h4>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            {totalEntries} Total
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Browse, search, and export the complete institutional registry of candidates mobilized for {universityAcronym}.
+                        </p>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => openExportModalForUniversity(universityFullName)}
+                          className="text-xs font-bold text-rose-600 hover:text-rose-800 transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Export CSV</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('entries');
+                            loadEntries(1);
+                          }}
+                          className="text-xs font-bold text-slate-900 hover:text-blue-600 transition cursor-pointer"
+                        >
+                          View All Records →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Statistics Cards (Isolated to this University) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Total Mobilized
-                  </span>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
-                    {stats?.totalEntries ?? totalEntries}
+              {/* TAB 2: MOBILIZATION RECORDS */}
+              {activeTab === 'entries' && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                  <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                        {universityFullName} Mobilization Database
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Displaying {totalEntries} record(s) strictly isolated to this institution.
+                      </p>
+                    </div>
+
+                    {/* Search and Filters */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative w-full sm:w-60">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search candidate or phone..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && loadEntries(1)}
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-blue-600"
+                        />
+                      </div>
+
+                      <button
+                        onClick={() => loadEntries(1)}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        Filter
+                      </button>
+
+                      <button
+                        onClick={() => openExportModalForUniversity(universityFullName)}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Export CSV</span>
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    All-time for {universityAcronym}
-                  </span>
+
+                  {/* Table Content */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-700">
+                      <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase border-b border-slate-200">
+                        <tr>
+                          <th className="py-3 px-4"># ID</th>
+                          <th className="py-3 px-4">Full Name</th>
+                          <th className="py-3 px-4">Telephone</th>
+                          <th className="py-3 px-4">Date</th>
+                          <th className="py-3 px-4">Time</th>
+                          <th className="py-3 px-4">Worksheet Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {isLoadingData ? (
+                          <tr>
+                            <td colSpan={6} className="py-10 text-center text-slate-400">
+                              <RefreshCw className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-2" />
+                              <span>Loading records...</span>
+                            </td>
+                          </tr>
+                        ) : entries.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-slate-400">
+                              No mobilization records found for this university.
+                            </td>
+                          </tr>
+                        ) : (
+                          entries.map((entry) => (
+                            <tr key={entry.id} className="hover:bg-slate-50 transition">
+                              <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                                {entry.id}
+                              </td>
+                              <td className="py-3 px-4 font-bold text-slate-900">
+                                {entry.fullName}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-800 font-semibold">
+                                {entry.telephone}
+                              </td>
+                              <td className="py-3 px-4 text-slate-600">
+                                {entry.date}
+                              </td>
+                              <td className="py-3 px-4 text-slate-600 font-mono">
+                                {entry.time}
+                              </td>
+                              <td className="py-3 px-4">
+                                {entry.syncedToGoogleSheets ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    Synced to [{universityAcronym}]
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                    Pending Sync
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="p-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                      <span>
+                        Page {currentPage} of {totalPages} ({totalEntries} items)
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => loadEntries(currentPage - 1)}
+                          disabled={currentPage <= 1}
+                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => loadEntries(currentPage + 1)}
+                          disabled={currentPage >= totalPages}
+                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">
-                    Today's Mobilizations
-                  </span>
-                  <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">
-                    {stats?.todayEntries ?? 0}
-                  </div>
-                  <span className="text-[11px] text-emerald-600/80 mt-1 block">
-                    Recorded today
-                  </span>
-                </div>
+              {/* TAB 3: GOOGLE SHEETS */}
+              {activeTab === 'sheets' && (
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                    <div>
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                        <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                        <span>Google Sheets Dedicated Campus Integration</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Submissions for {universityFullName} synchronize into the isolated worksheet tab <strong>"{universityAcronym}"</strong>.
+                      </p>
+                    </div>
 
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
-                    Sheets Synced
-                  </span>
-                  <div className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">
-                    {stats?.totalSynced ?? 0}
-                  </div>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    In tab <strong>{universityAcronym}</strong>
-                  </span>
-                </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleTestSheets}
+                        disabled={isTestingSheets}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+                      >
+                        {isTestingSheets ? 'Testing...' : 'Test Connection'}
+                      </button>
 
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">
-                    Pending Sync
-                  </span>
-                  <div className="text-2xl sm:text-3xl font-black text-amber-700 mt-1">
-                    {stats?.totalUnsynced ?? 0}
-                  </div>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    Cached in storage
-                  </span>
-                </div>
-              </div>
-
-              {/* Isolated Mobilization Records Table */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm sm:text-base font-bold text-slate-900">
-                      {universityFullName} Mobilization Database
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Displaying {totalEntries} record(s) strictly isolated to this institution.
-                    </p>
+                      <button
+                        onClick={handleSyncAll}
+                        disabled={isSyncingAll}
+                        className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isSyncingAll ? 'animate-spin' : ''}`} />
+                        <span>{isSyncingAll ? 'Syncing...' : 'Sync Tab Now'}</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Search and Filters */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative w-full sm:w-60">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search candidate or phone..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && loadEntries(1)}
-                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-blue-600"
-                      />
+                  {testResult && (
+                    <div
+                      className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                        testResult.success
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border border-amber-200'
+                      }`}
+                    >
+                      {testResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      )}
+                      <span>{testResult.message}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[11px] text-slate-500 font-semibold block">Designated Sheet Tab</span>
+                      <span className="text-lg font-black text-slate-900 block mt-1">{universityAcronym}</span>
+                      <span className="text-[10px] text-slate-400 mt-1 block">Dedicated Worksheet</span>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[11px] text-slate-500 font-semibold block">Synced Records</span>
+                      <span className="text-lg font-black text-blue-700 block mt-1">{stats?.totalSynced ?? 0}</span>
+                      <span className="text-[10px] text-slate-400 mt-1 block">Verified on cloud</span>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[11px] text-slate-500 font-semibold block">Pending Queue</span>
+                      <span className="text-lg font-black text-amber-700 block mt-1">{stats?.totalUnsynced ?? 0}</span>
+                      <span className="text-[10px] text-slate-400 mt-1 block">Ready to transfer</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+                    <div>
+                      Spreadsheet ID:{' '}
+                      <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">
+                        {sheetsStatus?.spreadsheetId || 'GOOGLE_SHEETS_SPREADSHEET_ID'}
+                      </code>
                     </div>
 
                     <button
-                      onClick={() => loadEntries(1)}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                      onClick={() => setShowGuideModal(true)}
+                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline underline-offset-2"
                     >
-                      Filter
+                      View Setup Instructions
                     </button>
                   </div>
                 </div>
+              )}
 
-                {/* Table Content */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-700">
-                    <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase border-b border-slate-200">
-                      <tr>
-                        <th className="py-3 px-4"># ID</th>
-                        <th className="py-3 px-4">Full Name</th>
-                        <th className="py-3 px-4">Telephone</th>
-                        <th className="py-3 px-4">Date</th>
-                        <th className="py-3 px-4">Time</th>
-                        <th className="py-3 px-4">Worksheet Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {isLoadingData ? (
-                        <tr>
-                          <td colSpan={6} className="py-10 text-center text-slate-400">
-                            <RefreshCw className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-2" />
-                            <span>Loading records...</span>
-                          </td>
-                        </tr>
-                      ) : entries.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400">
-                            No mobilization records found for this university.
-                          </td>
-                        </tr>
-                      ) : (
-                        entries.map((entry) => (
-                          <tr key={entry.id} className="hover:bg-slate-50 transition">
-                            <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                              {entry.id}
-                            </td>
-                            <td className="py-3 px-4 font-bold text-slate-900">
-                              {entry.fullName}
-                            </td>
-                            <td className="py-3 px-4 font-mono text-slate-800 font-semibold">
-                              {entry.telephone}
-                            </td>
-                            <td className="py-3 px-4 text-slate-600">
-                              {entry.date}
-                            </td>
-                            <td className="py-3 px-4 text-slate-600 font-mono">
-                              {entry.time}
-                            </td>
-                            <td className="py-3 px-4">
-                              {entry.syncedToGoogleSheets ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  Synced to [{universityAcronym}]
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                                  <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                  Pending Sync
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              {/* TAB 4: MILESTONE NOTIFICATIONS */}
+              {activeTab === 'notifications' && (
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                    <div>
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                        <Bell className="w-5 h-5 text-amber-500" />
+                        <span>{universityAcronym} Milestone Alerts Center</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Automated notifications dispatched to you when 50 or more candidates are mobilized today.
+                      </p>
+                    </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="p-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-                    <span>
-                      Page {currentPage} of {totalPages} ({totalEntries} items)
-                    </span>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => loadEntries(currentPage - 1)}
-                        disabled={currentPage <= 1}
-                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                        type="button"
+                        onClick={handleTriggerTestMilestone}
+                        disabled={isTriggeringTestMilestone}
+                        className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                       >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => loadEntries(currentPage + 1)}
-                        disabled={currentPage >= totalPages}
-                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
-                      >
-                        <ChevronRight className="w-4 h-4" />
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isTriggeringTestMilestone ? 'Simulating...' : 'Simulate 50-Person Alert'}</span>
                       </button>
                     </div>
                   </div>
-                )}
-              </div>
+
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                      <Bell className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="text-sm font-bold text-slate-700">No milestone alerts recorded today</p>
+                      <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                        When your university mobilizes 50 candidates in a day, an official milestone alert will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                      {notifications.map((n) => {
+                        const isRead = currentAdmin ? n.readBy.includes(currentAdmin.username) : false;
+                        return (
+                          <div
+                            key={n.id}
+                            className={`p-4 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                              isRead ? 'bg-white' : 'bg-amber-50/50'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-900 text-xs sm:text-sm">{n.title}</span>
+                                <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                                  {n.milestoneCount} Milestone
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 mt-1">{n.message}</p>
+                              <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
+                                <span>Date: {n.date}</span>
+                                <span>• Status: {isRead ? 'Read' : 'Unread'}</span>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0 flex items-center gap-2">
+                              {!isRead && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkNotificationRead(n.id)}
+                                  className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs cursor-pointer"
+                                >
+                                  Mark as Read
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             /* ======================================================== */
             /* 3. CENTRAL SYSTEM ADMIN DASHBOARD                        */
             /* ======================================================== */
             <div className="space-y-5">
-              {/* System Admin Sub-Navigation */}
-              <div className="flex items-center gap-1.5 border-b border-slate-200 pb-3 overflow-x-auto">
-                <button
-                  onClick={() => setSystemActiveTab('overview')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    systemActiveTab === 'overview'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Cross-University Overview
-                </button>
-                <button
-                  onClick={() => setSystemActiveTab('entries')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    systemActiveTab === 'entries'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Master Mobilization Database
-                </button>
-                <button
-                  onClick={() => setSystemActiveTab('sheets')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    systemActiveTab === 'sheets'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Google Sheets 5-Worksheet Hub
-                </button>
-                <button
-                  onClick={() => {
-                    setSystemActiveTab('users');
-                    loadAdminUsers();
-                  }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    systemActiveTab === 'users'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  University Administrators
-                </button>
-              </div>
-
-              {systemActiveTab === 'overview' && (
+              {activeTab === 'overview' && (
                 <div className="space-y-5">
-                  {/* System Hero Banner */}
-                  <div className="bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 text-white rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  {/* Clean Spacious Header (No loud marketing or unnecessary branding) */}
+                  <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-red-400">
-                        Central System Administration
-                      </span>
-                      <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
-                        5 Universities • Central Google Sheets Pipeline
-                      </h3>
-                      <p className="text-xs text-slate-300 mt-1">
-                        Cross-institutional records tracking with isolated worksheet tabs: KIU, CAVENDISH, IUEA, CIU, KCU
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                          Cross-University Mobilization Overview
+                        </h3>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          5 Participating Institutions
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Central multi-worksheet pipeline: KIU, CAVENDISH, IUEA, CIU, KCU
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
                         id="system-admin-export-all-csv-btn"
                         onClick={() => openExportModalForUniversity('all')}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg shadow-red-900/40 transition active:scale-[0.99] cursor-pointer border border-red-400/40"
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
                       >
-                        <Download className="w-4 h-4 text-white stroke-[2.5]" />
-                        <span>EXPORT ALL CSV</span>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Export All CSV</span>
                       </button>
                     </div>
                   </div>
@@ -972,7 +1472,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {systemActiveTab === 'entries' && (
+              {activeTab === 'entries' && (
                 /* Master Database Tab */
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                   <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1121,7 +1621,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {systemActiveTab === 'sheets' && (
+              {activeTab === 'sheets' && (
                 /* Google Sheets Multi-Worksheet Architecture Tab */
                 <div className="space-y-4">
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -1231,7 +1731,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {systemActiveTab === 'users' && (
+              {activeTab === 'users' && (
                 /* University Administrators Management Tab */
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
                   <div>
@@ -1322,6 +1822,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'notifications' && (
+                /* HOD Milestone Notifications Log Tab */
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                    <div>
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                        <Bell className="w-5 h-5 text-amber-500" />
+                        <span>HOD Milestone Notification Dispatch Center</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Automated notifications dispatched to respective school administrators when 50+ entries are submitted in a single day.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleTriggerTestMilestone}
+                        disabled={isTriggeringTestMilestone}
+                        className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                        title="Simulate 50-person milestone alert"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isTriggeringTestMilestone ? 'Broadcasting...' : 'Simulate 50-Person Alert'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                      <Bell className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="text-sm font-bold text-slate-700">No milestone alerts recorded today</p>
+                      <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                        When any university team mobilizes 50 candidates in a day, an official notification is dispatched directly to that school's administrator.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                      {notifications.map((n) => (
+                        <div key={n.id} className="p-4 hover:bg-slate-50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 text-xs sm:text-sm">{n.title}</span>
+                              <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                                {n.milestoneCount} Milestone
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-1">{n.message}</p>
+                            <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
+                              <span>Target: <strong>{n.university}</strong></span>
+                              <span>• Date: {n.date}</span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
+                              Dispatched to {n.targetRole}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

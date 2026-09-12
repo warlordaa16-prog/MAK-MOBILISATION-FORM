@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Shield, RefreshCw } from 'lucide-react';
+import { Building2, Shield, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { UniversityName } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -17,51 +17,57 @@ export const Header: React.FC<HeaderProps> = ({
   isAdminLoggedIn,
 }) => {
   return (
-    <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40">
-      <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-        {/* Left: App Title */}
-        <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
+    <header className="bg-slate-950 text-white border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+        {/* Left: App Title & Status */}
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-900/30">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-sm sm:text-base font-extrabold tracking-wide uppercase leading-tight text-white">
-              University Mobilization
-            </h1>
-            <p className="text-[11px] text-slate-400 font-medium">
-              Rapid Data Collection System
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-bold tracking-tight text-white leading-tight">
+                Campus Mobilization
+              </h1>
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Sync
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Field participant registration & data collection
             </p>
           </div>
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <PWAInstallButton />
 
           {selectedUniversity && (
             <button
               id="switch-univ-header-btn"
               onClick={onSwitchUniversity}
-              className="hidden sm:inline-flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer"
-              title="Change your active university"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl border border-slate-700/80 transition cursor-pointer active:scale-95"
+              title="Change your active campus"
             >
-              <RefreshCw className="w-3 h-3" />
-              <span>Switch Campus</span>
+              <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden sm:inline">Switch Campus</span>
             </button>
           )}
 
           <button
             id="admin-dashboard-btn"
             onClick={onOpenAdmin}
-            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer border ${
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition cursor-pointer border active:scale-95 ${
               isAdminLoggedIn
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white'
+                : 'bg-slate-900 text-slate-300 border-slate-700/80 hover:bg-slate-800 hover:text-white'
             }`}
-            title="Administrator Portal & Google Sheets Stats"
+            title="Administrator Portal"
           >
-            <Shield className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">{isAdminLoggedIn ? 'Admin Portal' : 'Admin'}</span>
+            <Shield className="w-3.5 h-3.5 text-amber-400" />
+            <span>{isAdminLoggedIn ? 'Admin Portal' : 'Admin'}</span>
           </button>
         </div>
       </div>

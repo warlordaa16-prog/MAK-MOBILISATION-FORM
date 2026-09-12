@@ -130,14 +130,16 @@ export interface GoogleSheetsConfigStatus {
 }
 
 export interface DataSummationSummary {
-  grandTotal: number;
-  todayTotal: number;
-  totalSynced: number;
-  totalPending: number;
-  activeUniversityTotal: number;
-  activeUniversityToday: number;
-  byUniversity: Record<string, number>;
-  todayByUniversity: Record<string, number>;
+  grandTotal?: number;
+  todayTotal?: number;
+  totalSynced?: number;
+  totalPending?: number;
+  activeUniversityTotal?: number;
+  activeUniversityToday?: number;
+  byUniversity?: Record<string, number>;
+  todayByUniversity?: Record<string, number>;
+  schoolTiers?: Record<string, SchoolSummationTier>;
+  activeTier?: SchoolSummationTier | null;
   lastEntry?: {
     id: string;
     fullName: string;
@@ -146,5 +148,38 @@ export interface DataSummationSummary {
     date: string;
   } | null;
   todayDate?: string;
+}
+
+export interface SchoolSummationTier {
+  university: UniversityName | string;
+  acronym: string;
+  totalSum: number;
+  todaySum: number;
+  syncedSum: number;
+  pendingSum: number;
+  dailyMilestoneProgress: number;
+  dailyMilestoneGoal: number;
+  milestonesAchievedToday: number;
+  lastEntryTime?: string;
+}
+
+export interface MultiLevelSummationData {
+  schoolTiers: Record<string, SchoolSummationTier>;
+  activeUniversity: string | null;
+  activeTier: SchoolSummationTier | null;
+  todayDate?: string;
+}
+
+export interface SchoolNotification {
+  id: string;
+  university: string;
+  universityAcronym: string;
+  title: string;
+  message: string;
+  type: 'MILESTONE_50' | 'SYSTEM' | 'DAILY_TARGET';
+  milestoneCount: number;
+  date: string;
+  timestamp: string;
+  readBy: string[];
 }
 

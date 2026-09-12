@@ -56,12 +56,27 @@ const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'entries.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
+const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
+
+export interface SchoolNotification {
+  id: string;
+  university: string;
+  universityAcronym: string;
+  title: string;
+  message: string;
+  type: 'MILESTONE_50' | 'SYSTEM' | 'DAILY_TARGET';
+  milestoneCount: number;
+  date: string;
+  timestamp: string;
+  readBy: string[];
+}
 
 export class LocalStorageManager {
   private static entries: StoredEntry[] = [];
   private static phoneMap = new Map<string, StoredEntry>();
   private static nextIdCounter = 0;
   private static adminUsers: AdminUserRecord[] = [];
+  private static notifications: SchoolNotification[] = [];
   private static settings: AppSettings = {
     duplicatePolicy: 'warn',
   };
@@ -158,6 +173,39 @@ export class LocalStorageManager {
         this.seedDefaultAdmins();
         this.saveAdmins();
       }
+
+      // Ensure admin users always have the required official passwords
+      const officialPasswords: Record<string, string> = {
+        'admin-system': 'Super Ignite',
+        'admin-kiu': 'KIU Ignite',
+        'admin-ciu': 'CIU Ignite',
+        'admin-kcu': 'KCU Ignite',
+        'admin-iuea': 'IUEA Ignite',
+        'admin-cavendish': 'CUU Ignite',
+      };
+      let passwordsMigrated = false;
+      for (const a of this.adminUsers) {
+        if (officialPasswords[a.id] && a.password !== officialPasswords[a.id]) {
+          a.password = officialPasswords[a.id];
+          passwordsMigrated = true;
+        }
+      }
+      if (passwordsMigrated) {
+        this.saveAdmins();
+      }
+
+      // Load school milestone notifications
+      if (fs.existsSync(NOTIFICATIONS_FILE)) {
+        try {
+          const raw = fs.readFileSync(NOTIFICATIONS_FILE, 'utf-8');
+          this.notifications = JSON.parse(raw);
+        } catch {
+          this.notifications = [];
+        }
+      } else {
+        this.seedInitialNotifications();
+        this.saveNotifications();
+      }
     } catch (err) {
       console.error('Storage initialization error:', err);
     }
@@ -166,14 +214,11 @@ export class LocalStorageManager {
   }
 
   private static seedDefaultAdmins() {
-    const envUser = process.env.ADMIN_USERNAME?.trim() || 'admin';
-    const envPass = process.env.ADMIN_PASSWORD?.trim() || 'mobilize2026_admin';
-
     this.adminUsers = [
       {
         id: 'admin-system',
-        username: envUser,
-        password: envPass,
+        username: 'MOBILISATION',
+        password: 'Super Ignite',
         displayName: 'Central System Administrator',
         role: 'SYSTEM_ADMIN',
         university: null,
@@ -183,7 +228,7 @@ export class LocalStorageManager {
       {
         id: 'admin-kiu',
         username: 'kiu_admin',
-        password: 'kiu2026',
+        password: 'KIU Ignite',
         displayName: 'KIU University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'Kampala International University (KIU)',
@@ -193,7 +238,7 @@ export class LocalStorageManager {
       {
         id: 'admin-cavendish',
         username: 'cuu_admin',
-        password: 'cuu2026',
+        password: 'CUU Ignite',
         displayName: 'CUU Cavendish University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'Cavendish University Uganda',
@@ -203,7 +248,7 @@ export class LocalStorageManager {
       {
         id: 'admin-iuea',
         username: 'iuea_admin',
-        password: 'iuea2026',
+        password: 'IUEA Ignite',
         displayName: 'IUEA University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'International University of East Africa (IUEA)',
@@ -213,7 +258,7 @@ export class LocalStorageManager {
       {
         id: 'admin-ciu',
         username: 'ciu_admin',
-        password: 'ciu2026',
+        password: 'CIU Ignite',
         displayName: 'CIU University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'Clarke International University (CIU)',
@@ -223,7 +268,7 @@ export class LocalStorageManager {
       {
         id: 'admin-kcu',
         username: 'kcu_admin',
-        password: 'kcu2026',
+        password: 'KCU Ignite',
         displayName: 'King Caesar University Administrator',
         role: 'UNIVERSITY_ADMIN',
         university: 'King Caesar University (KCU)',
@@ -426,22 +471,109 @@ export class LocalStorageManager {
     }
   }
 
+  private static saveNotifications() {
+    try {
+      fs.writeFileSync(NOTIFICATIONS_FILE, JSON.stringify(this.notifications, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Failed to save notifications to disk:', err);
+    }
+  }
+
+  private static seedInitialNotifications() {
+    this.notifications = [
+      {
+        id: 'notif_welcome',
+        university: 'ALL',
+        universityAcronym: 'ALL',
+        title: '🔔 Multi-University Mobilization System Active',
+        message: 'Head of Department milestone alert system is online. When 50+ mobilizations are completed in a day for your university, an immediate alert is generated.',
+        type: 'SYSTEM',
+        milestoneCount: 0,
+        date: new Date().toLocaleDateString('en-GB'),
+        timestamp: new Date().toISOString(),
+        readBy: [],
+      },
+    ];
+  }
+
+  static getNotifications(forUniversity?: string | null): SchoolNotification[] {
+    this.init();
+    if (forUniversity) {
+      return this.notifications.filter(
+        (n) => n.university === forUniversity || n.university === 'ALL'
+      );
+    }
+    return [...this.notifications];
+  }
+
+  static markNotificationRead(id: string, username: string): boolean {
+    this.init();
+    const notif = this.notifications.find((n) => n.id === id);
+    if (notif) {
+      if (!notif.readBy.includes(username)) {
+        notif.readBy.push(username);
+        this.saveNotifications();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  static triggerMilestoneNotification(university: string, count: number, date: string): SchoolNotification {
+    this.init();
+    const acronym = UNIVERSITY_ACRONYM_MAP[university] || 'CAMPUS';
+    const notifId = `notif_${acronym.toLowerCase()}_${count}_${date.replace(/\//g, '-')}`;
+
+    // Prevent duplicate alert for the exact same milestone on the same date
+    const existing = this.notifications.find((n) => n.id === notifId);
+    if (existing) return existing;
+
+    const notif: SchoolNotification = {
+      id: notifId,
+      university,
+      universityAcronym: acronym,
+      title: `🎉 ${acronym} HOD Alert: ${count} Mobilized Today!`,
+      message: `Head of Department Alert: ${university} has reached ${count} participant mobilizations today (${date}). Excellent progress by your campus mobilization team!`,
+      type: 'MILESTONE_50',
+      milestoneCount: count,
+      date,
+      timestamp: new Date().toISOString(),
+      readBy: [],
+    };
+
+    this.notifications.unshift(notif);
+    this.saveNotifications();
+    return notif;
+  }
+
   // --- ADMIN AUTHENTICATION METHODS ---
 
   static authenticateAdmin(username: string, password: string): AdminUserRecord | null {
     this.init();
-    const u = (username || '').trim().toLowerCase();
+    const clean = (s: string) => (s || '').trim().toLowerCase().replace(/[\s_\-]+/g, '');
+
+    const u = (username || '').trim();
+    const uClean = clean(u);
     const p = (password || '').trim();
+    const pClean = clean(p);
 
-    // Check environment system admin fallback
-    const envUser = (process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
-    const envPass = (process.env.ADMIN_PASSWORD || 'mobilize2026_admin').trim();
+    const isMatch = (targetUser: string, aliases: string[], targetPass: string) => {
+      const userMatches =
+        uClean === clean(targetUser) ||
+        aliases.some((alias) => uClean === clean(alias) || uClean.includes(clean(alias)));
+      const passMatches = p === targetPass || pClean === clean(targetPass);
+      return userMatches && passMatches;
+    };
 
-    if ((u === envUser || u === 'admin' || u === 'system_admin') && (p === envPass || p === 'mobilize2026_admin')) {
+    // 1. Central System / Super Admin (Password: Super Ignite)
+    if (
+      isMatch('MOBILISATION', ['admin', 'superadmin', 'super', 'system_admin', 'superignite', 'super ignite', 'mobilise'], 'Super Ignite') ||
+      isMatch('MOBILISATION', ['admin', 'superadmin', 'super', 'system_admin'], 'Ignite')
+    ) {
       return {
         id: 'admin-system',
-        username: u,
-        password: p,
+        username: 'MOBILISATION',
+        password: 'Super Ignite',
         displayName: 'Central System Administrator',
         role: 'SYSTEM_ADMIN',
         university: null,
@@ -450,23 +582,88 @@ export class LocalStorageManager {
       };
     }
 
-    // Check stored admin accounts
+    // 2. KIU Administrator (Password: KIU Ignite)
+    if (isMatch('kiu_admin', ['kiu', 'kiu_admin', 'kampala international', 'kiu ignite', 'kiu admin'], 'KIU Ignite')) {
+      return {
+        id: 'admin-kiu',
+        username: 'kiu_admin',
+        password: 'KIU Ignite',
+        displayName: 'KIU University Administrator',
+        role: 'UNIVERSITY_ADMIN',
+        university: 'Kampala International University (KIU)',
+        universityAcronym: 'KIU',
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    // 3. CIU Administrator (Password: CIU Ignite)
+    if (isMatch('ciu_admin', ['ciu', 'ciu_admin', 'clarke international', 'ciu ignite', 'ciu admin'], 'CIU Ignite')) {
+      return {
+        id: 'admin-ciu',
+        username: 'ciu_admin',
+        password: 'CIU Ignite',
+        displayName: 'CIU University Administrator',
+        role: 'UNIVERSITY_ADMIN',
+        university: 'Clarke International University (CIU)',
+        universityAcronym: 'CIU',
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    // 4. KCU Administrator (Password: KCU Ignite)
+    if (isMatch('kcu_admin', ['kcu', 'kcu_admin', 'king caesar', 'kcu ignite', 'kcu admin'], 'KCU Ignite')) {
+      return {
+        id: 'admin-kcu',
+        username: 'kcu_admin',
+        password: 'KCU Ignite',
+        displayName: 'King Caesar University Administrator',
+        role: 'UNIVERSITY_ADMIN',
+        university: 'King Caesar University (KCU)',
+        universityAcronym: 'KCU',
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    // 5. IUEA Administrator (Password: IUEA Ignite)
+    if (isMatch('iuea_admin', ['iuea', 'iuea_admin', 'east africa', 'iuea ignite', 'iuea admin'], 'IUEA Ignite')) {
+      return {
+        id: 'admin-iuea',
+        username: 'iuea_admin',
+        password: 'IUEA Ignite',
+        displayName: 'IUEA University Administrator',
+        role: 'UNIVERSITY_ADMIN',
+        university: 'International University of East Africa (IUEA)',
+        universityAcronym: 'IUEA',
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    // 6. CUU / Cavendish Administrator (Password: CUU Ignite)
+    if (isMatch('cuu_admin', ['cuu', 'cuu_admin', 'cavendish', 'cavendish_admin', 'cuu ignite', 'cuu admin'], 'CUU Ignite')) {
+      return {
+        id: 'admin-cavendish',
+        username: 'cuu_admin',
+        password: 'CUU Ignite',
+        displayName: 'CUU Cavendish University Administrator',
+        role: 'UNIVERSITY_ADMIN',
+        university: 'Cavendish University Uganda',
+        universityAcronym: 'CUU',
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    // 7. Dynamic check against this.adminUsers for custom updated passwords
     const found = this.adminUsers.find((a) => {
-      if (a.password !== p) return false;
-      const uname = a.username.toLowerCase();
-      if (uname === u) return true;
+      const passMatches = a.password === p || clean(a.password) === pClean;
+      if (!passMatches) return false;
 
-      // Short acronym aliases (e.g., 'kiu' or 'kiu_admin')
-      const slug = a.universityAcronym?.toLowerCase();
-      if (slug && (slug === u || `${slug}_admin` === u)) return true;
-
-      // Cavendish / CUU dual aliases support
-      if (a.university?.includes('Cavendish')) {
-        if (u === 'cuu' || u === 'cuu_admin' || u === 'cavendish' || u === 'cavendish_admin') {
-          return true;
-        }
+      if (clean(a.username) === uClean) return true;
+      if (a.universityAcronym && (clean(a.universityAcronym) === uClean || clean(`${a.universityAcronym}_admin`) === uClean)) {
+        return true;
       }
-
+      if (a.university && clean(a.university).includes(uClean)) {
+        return true;
+      }
       return false;
     });
 
@@ -583,6 +780,14 @@ export class LocalStorageManager {
 
     // 5. Debounced, atomic file write
     this.scheduleSaveToFile();
+
+    // 6. Check Daily Milestone Trigger for HOD Notification (every 50 entries today)
+    const todayCountForUniv = this.entries.filter(
+      (e) => e.university === newEntry.university && e.date === newEntry.date
+    ).length;
+    if (todayCountForUniv > 0 && todayCountForUniv % 50 === 0) {
+      this.triggerMilestoneNotification(newEntry.university, todayCountForUniv, newEntry.date);
+    }
 
     const targetTab = GoogleSheetsService.getWorksheetForUniversity(newEntry.university);
 
@@ -744,7 +949,8 @@ export class LocalStorageManager {
   }
 
   /**
-   * Generates public auto summation for active mobilizers and overview displays
+   * Generates multi-level summation broken down independently by school
+   * Without conflating into a single grand total.
    */
   static getSummation(forUniversity?: string | null) {
     this.init();
@@ -755,59 +961,115 @@ export class LocalStorageManager {
     const year = now.getFullYear();
     const todayDate = `${day}/${month}/${year}`;
 
-    const byUniversity: Record<string, number> = {
-      'Kampala International University (KIU)': 0,
-      'Cavendish University Uganda': 0,
-      'International University of East Africa (IUEA)': 0,
-      'Clarke International University (CIU)': 0,
-      'King Caesar University (KCU)': 0,
+    const schoolTiers: Record<string, {
+      university: string;
+      acronym: string;
+      totalSum: number;
+      todaySum: number;
+      syncedSum: number;
+      pendingSum: number;
+      dailyMilestoneProgress: number;
+      dailyMilestoneGoal: number;
+      milestonesAchievedToday: number;
+      lastEntryTime?: string;
+    }> = {
+      'Kampala International University (KIU)': {
+        university: 'Kampala International University (KIU)',
+        acronym: 'KIU',
+        totalSum: 0,
+        todaySum: 0,
+        syncedSum: 0,
+        pendingSum: 0,
+        dailyMilestoneProgress: 0,
+        dailyMilestoneGoal: 50,
+        milestonesAchievedToday: 0,
+      },
+      'Cavendish University Uganda': {
+        university: 'Cavendish University Uganda',
+        acronym: 'CUU',
+        totalSum: 0,
+        todaySum: 0,
+        syncedSum: 0,
+        pendingSum: 0,
+        dailyMilestoneProgress: 0,
+        dailyMilestoneGoal: 50,
+        milestonesAchievedToday: 0,
+      },
+      'International University of East Africa (IUEA)': {
+        university: 'International University of East Africa (IUEA)',
+        acronym: 'IUEA',
+        totalSum: 0,
+        todaySum: 0,
+        syncedSum: 0,
+        pendingSum: 0,
+        dailyMilestoneProgress: 0,
+        dailyMilestoneGoal: 50,
+        milestonesAchievedToday: 0,
+      },
+      'Clarke International University (CIU)': {
+        university: 'Clarke International University (CIU)',
+        acronym: 'CIU',
+        totalSum: 0,
+        todaySum: 0,
+        syncedSum: 0,
+        pendingSum: 0,
+        dailyMilestoneProgress: 0,
+        dailyMilestoneGoal: 50,
+        milestonesAchievedToday: 0,
+      },
+      'King Caesar University (KCU)': {
+        university: 'King Caesar University (KCU)',
+        acronym: 'KCU',
+        totalSum: 0,
+        todaySum: 0,
+        syncedSum: 0,
+        pendingSum: 0,
+        dailyMilestoneProgress: 0,
+        dailyMilestoneGoal: 50,
+        milestonesAchievedToday: 0,
+      },
     };
 
-    const todayByUniversity: Record<string, number> = {
-      'Kampala International University (KIU)': 0,
-      'Cavendish University Uganda': 0,
-      'International University of East Africa (IUEA)': 0,
-      'Clarke International University (CIU)': 0,
-      'King Caesar University (KCU)': 0,
-    };
-
-    let todayTotal = 0;
-    let totalSynced = 0;
+    const byUniversity: Record<string, number> = {};
+    const todayByUniversity: Record<string, number> = {};
 
     for (const e of this.entries) {
-      if (byUniversity[e.university] !== undefined) {
-        byUniversity[e.university]++;
-      } else {
-        byUniversity[e.university] = 1;
-      }
-
-      if (e.date === todayDate) {
-        todayTotal++;
-        if (todayByUniversity[e.university] !== undefined) {
-          todayByUniversity[e.university]++;
+      if (schoolTiers[e.university]) {
+        schoolTiers[e.university].totalSum++;
+        if (e.date === todayDate) {
+          schoolTiers[e.university].todaySum++;
+          schoolTiers[e.university].lastEntryTime = e.time;
+        }
+        if (e.syncedToGoogleSheets) {
+          schoolTiers[e.university].syncedSum++;
         } else {
-          todayByUniversity[e.university] = 1;
+          schoolTiers[e.university].pendingSum++;
         }
       }
 
-      if (e.syncedToGoogleSheets) {
-        totalSynced++;
+      byUniversity[e.university] = (byUniversity[e.university] || 0) + 1;
+      if (e.date === todayDate) {
+        todayByUniversity[e.university] = (todayByUniversity[e.university] || 0) + 1;
       }
     }
 
+    // Compute progress towards 50-entry daily milestone for each school
+    Object.values(schoolTiers).forEach((tier) => {
+      tier.dailyMilestoneProgress = tier.todaySum % 50;
+      tier.milestonesAchievedToday = Math.floor(tier.todaySum / 50);
+    });
+
+    const activeTier = forUniversity && schoolTiers[forUniversity] ? schoolTiers[forUniversity] : null;
     const last = this.entries.length > 0 ? this.entries[this.entries.length - 1] : null;
-    const activeUnivTotal = forUniversity ? (byUniversity[forUniversity] || 0) : 0;
-    const activeUnivToday = forUniversity ? (todayByUniversity[forUniversity] || 0) : 0;
 
     return {
-      grandTotal: this.entries.length,
-      todayTotal,
-      totalSynced,
-      totalPending: this.entries.length - totalSynced,
-      activeUniversityTotal: activeUnivTotal,
-      activeUniversityToday: activeUnivToday,
+      schoolTiers,
+      activeUniversity: forUniversity || null,
+      activeTier,
       byUniversity,
       todayByUniversity,
+      activeUniversityTotal: activeTier ? activeTier.totalSum : 0,
+      activeUniversityToday: activeTier ? activeTier.todaySum : 0,
       lastEntry: last
         ? {
             id: last.id,

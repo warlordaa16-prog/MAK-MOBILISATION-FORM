@@ -2,7 +2,7 @@
   {
     "id": "admin-system",
     "username": "MOBILISATION",
-    "password": "Ignite",
+    "password": "Super Ignite",
     "displayName": "Central System Administrator",
     "role": "SYSTEM_ADMIN",
     "university": null,
@@ -12,7 +12,7 @@
   {
     "id": "admin-kiu",
     "username": "kiu_admin",
-    "password": "kiu2026",
+    "password": "KIU Ignite",
     "displayName": "KIU University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "Kampala International University (KIU)",
@@ -22,7 +22,7 @@
   {
     "id": "admin-cavendish",
     "username": "cuu_admin",
-    "password": "cuu2026",
+    "password": "CUU Ignite",
     "displayName": "CUU Cavendish University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "Cavendish University Uganda",
@@ -32,7 +32,7 @@
   {
     "id": "admin-iuea",
     "username": "iuea_admin",
-    "password": "iuea2026",
+    "password": "IUEA Ignite",
     "displayName": "IUEA University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "International University of East Africa (IUEA)",
@@ -42,7 +42,7 @@
   {
     "id": "admin-ciu",
     "username": "ciu_admin",
-    "password": "ciu2026",
+    "password": "CIU Ignite",
     "displayName": "CIU University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "Clarke International University (CIU)",
@@ -52,7 +52,7 @@
   {
     "id": "admin-kcu",
     "username": "kcu_admin",
-    "password": "kcu2026",
+    "password": "KCU Ignite",
     "displayName": "King Caesar University Administrator",
     "role": "UNIVERSITY_ADMIN",
     "university": "King Caesar University (KCU)",

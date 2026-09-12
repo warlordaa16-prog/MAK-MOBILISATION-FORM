@@ -559,6 +559,40 @@ async function startServer() {
     res.json({ success: true, ...result });
   });
 
+  // 12. HOD / School Administrator Milestone Notifications
+  app.get('/api/admin/notifications', requireAdmin, (req, res) => {
+    const admin = (req as any).adminUser as AuthenticatedAdmin;
+    const forUniv = admin.role === 'UNIVERSITY_ADMIN' ? admin.university : null;
+    const notifications = LocalStorageManager.getNotifications(forUniv);
+    res.json({ success: true, notifications });
+  });
+
+  app.post('/api/admin/notifications/read', requireAdmin, (req, res) => {
+    const admin = (req as any).adminUser as AuthenticatedAdmin;
+    const { id } = req.body;
+    if (!id) {
+      res.status(400).json({ success: false, message: 'Notification id required' });
+      return;
+    }
+    const success = LocalStorageManager.markNotificationRead(id, admin.username);
+    res.json({ success });
+  });
+
+  app.post('/api/admin/notifications/test-milestone', requireAdmin, (req, res) => {
+    const admin = (req as any).adminUser as AuthenticatedAdmin;
+    const targetUniv = (admin.role === 'UNIVERSITY_ADMIN' && admin.university)
+      ? admin.university
+      : (req.body.university || 'Kampala International University (KIU)');
+    const count = parseInt(req.body.count, 10) || 50;
+
+    const notif = LocalStorageManager.triggerMilestoneNotification(
+      targetUniv,
+      count,
+      new Date().toLocaleDateString('en-GB')
+    );
+    res.json({ success: true, notification: notif });
+  });
+
   // Graceful shutdown data flush
   process.on('SIGTERM', () => {
     LocalStorageManager.flushSync();

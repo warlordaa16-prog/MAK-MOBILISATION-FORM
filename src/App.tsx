@@ -119,16 +119,16 @@ export default function App() {
       <OfflineIndicator onSyncComplete={fetchRecentEntries} />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-3xl w-full mx-auto pb-12 pt-2 sm:pt-4 px-2 sm:px-4">
+      <main className="flex-1 w-full max-w-6xl mx-auto pb-16 pt-4 sm:pt-6 px-4 sm:px-6">
         {!selectedUniversity ? (
-          /* Step 1: Campus Selection & Campaign Overview Summation */
-          <div className="space-y-4">
+          /* Homepage: Campus Selection Grid & Live Progress */
+          <div className="space-y-8">
             <UniversitySelector
               selectedUniversity={selectedUniversity}
               onSelect={handleUniversitySelect}
             />
 
-            {/* Campaign-wide Auto Summation */}
+            {/* Independent School Tallies */}
             <DataSummation
               selectedUniversity={null}
               sessionCount={sessionCount}
@@ -136,8 +136,8 @@ export default function App() {
             />
           </div>
         ) : (
-          /* Step 2: High-Speed Repeated Data Entry Workflow */
-          <div className="space-y-3">
+          /* Mobilization Entry Mode */
+          <div className="max-w-2xl mx-auto space-y-4">
             {/* The Rapid Entry Form */}
             <MobilizationForm
               selectedUniversity={selectedUniversity}
@@ -145,7 +145,7 @@ export default function App() {
               onEntrySaved={handleEntrySaved}
             />
 
-            {/* Live Auto Summation of Data Entered */}
+            {/* Live Summation for Current Campus */}
             <DataSummation
               selectedUniversity={selectedUniversity}
               sessionCount={sessionCount}
@@ -166,19 +166,19 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
-        <div className="max-w-3xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-slate-600 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-            <span>Central Google Sheets Mobilization Platform</span>
+      <footer className="mt-auto border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-500">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-slate-600 font-medium">
+            <ShieldCheck className="w-4 h-4 text-blue-600" />
+            <span>Campus Mobilization System • Live Google Sheets Sync</span>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsAdminOpen(true)}
-              className="text-slate-600 hover:text-slate-900 transition underline underline-offset-2 cursor-pointer"
+              className="text-slate-600 hover:text-slate-900 transition font-medium cursor-pointer"
             >
-              Admin Dashboard
+              Admin Portal
             </button>
             <span>•</span>
             <span className="flex items-center gap-1 text-slate-600 font-medium">
