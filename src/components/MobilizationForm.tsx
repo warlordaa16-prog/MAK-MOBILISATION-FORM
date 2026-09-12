@@ -13,9 +13,11 @@ import {
   Volume2, 
   VolumeX,
   Sparkles,
-  CloudUpload
+  CloudUpload,
+  ShieldCheck,
+  Tag
 } from 'lucide-react';
-import { UniversityName, MobilizationEntry } from '../types';
+import { UniversityName, MobilizationEntry, MOBILIZATION_METHODS } from '../types';
 import { validateAndNormalizeUgandanPhone } from '../utils/phone';
 import { OfflineQueueService } from '../services/offlineQueue';
 import { useFullConnectivity } from '../hooks/useOnlineStatus';
@@ -59,6 +61,13 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => OfflineQueueService.isSoundEnabled());
+  const [mobilizationMethod, setMobilizationMethod] = useState<string>(() => {
+    return localStorage.getItem('univmob_selected_method') || 'Campus Gate / Main Entrance';
+  });
+  const [mobilizerName, setMobilizerName] = useState<string>(() => {
+    return localStorage.getItem('univmob_current_mobilizer') || 'Field Mobilizer 1';
+  });
+  const [showMobilizerEdit, setShowMobilizerEdit] = useState<boolean>(false);
 
   const fullNameInputRef = useRef<HTMLInputElement>(null);
   const telephoneInputRef = useRef<HTMLInputElement>(null);
@@ -199,6 +208,9 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
       telephone: phoneValidation.normalized,
       university: selectedUniversity,
       allowDuplicate,
+      mobilizerName: mobilizerName.trim() || 'Field Mobilizer 1',
+      mobilizationMethod: mobilizationMethod,
+      intakeMethod: 'rapid-single' as const,
     };
 
     // 2. OFFLINE PATH: If effectively offline (or in manual offline mode), save instantly to queue!
@@ -406,6 +418,67 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Method Selector: "The summations should be done differently under those specific methods" */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Mobilization Outreach Method
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowMobilizerEdit(!showMobilizerEdit)}
+                className="text-[11px] text-blue-700 font-bold hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <Tag className="w-3 h-3" />
+                <span>Mobilizer: {mobilizerName}</span>
+              </button>
+            </div>
+
+            {showMobilizerEdit && (
+              <div className="p-2 bg-white border border-blue-200 rounded-lg flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-600 shrink-0">Mobilizer Name / ID:</span>
+                <input
+                  type="text"
+                  value={mobilizerName}
+                  onChange={(e) => {
+                    setMobilizerName(e.target.value);
+                    localStorage.setItem('univmob_current_mobilizer', e.target.value);
+                  }}
+                  placeholder="e.g. Arnold M. / Station 1"
+                  className="w-full px-2 py-1 text-xs bg-slate-50 border border-slate-300 rounded text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {MOBILIZATION_METHODS.map((m) => {
+                const isSelected = mobilizationMethod === m.name;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => {
+                      setMobilizationMethod(m.name);
+                      localStorage.setItem('univmob_selected_method', m.name);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium text-left transition cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-blue-700 text-white font-bold shadow-xs'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    <span>{m.icon}</span>
+                    <span className="truncate">{m.short}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-[10px] text-slate-500 font-medium">
+              * Irrespective of who enters data, all records are safely kept and summed under {selectedUniversity}.
+            </p>
+          </div>
+
           {/* Field 1: Full Name */}
           <div>
             <div className="flex items-center justify-between mb-1.5">

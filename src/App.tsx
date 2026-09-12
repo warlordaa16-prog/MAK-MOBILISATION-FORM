@@ -1,24 +1,19 @@
-/**
- * University Mobilization Data Collection System
- * Rapid, mobile-first data-collection platform for university mobilizers
- * contributing to a central Google Sheet.
- */
-
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
+import { OfflineIndicator } from './components/OfflineIndicator';
+import { OfflineOutboxModal } from './components/OfflineOutboxModal';
+import { AdminDashboard } from './components/AdminDashboard';
 import { UniversitySelector } from './components/UniversitySelector';
 import { MobilizationForm } from './components/MobilizationForm';
 import { SessionCounter } from './components/SessionCounter';
 import { RecentEntriesList } from './components/RecentEntriesList';
-import { OfflineIndicator } from './components/OfflineIndicator';
-import { OfflineOutboxModal } from './components/OfflineOutboxModal';
-import { AdminDashboard } from './components/AdminDashboard';
 import { DataSummation } from './components/DataSummation';
 import { UniversityName, MobilizationEntry } from './types';
 import { OfflineQueueService } from './services/offlineQueue';
-import { FileSpreadsheet, ShieldCheck, Wifi, CloudUpload } from 'lucide-react';
+import { useFullConnectivity } from './hooks/useOnlineStatus';
 
 export default function App() {
+  const { isOnline } = useFullConnectivity();
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityName | null>(() => {
     const saved = OfflineQueueService.getSelectedUniversity();
     return (saved as UniversityName) || null;
@@ -32,41 +27,54 @@ export default function App() {
     return OfflineQueueService.getRecentEntries();
   });
 
-  const [lastSavedEntry, setLastSavedEntry] = useState<MobilizationEntry | null>(null);
-  const [isOutboxOpen, setIsOutboxOpen] = useState(false);
+  const [totalEntriesCount, setTotalEntriesCount] = useState<number>(() => {
+    return OfflineQueueService.getRecentEntries().length;
+  });
 
+  const [queuedCount, setQueuedCount] = useState<number>(() => {
+    return OfflineQueueService.getQueue().length;
+  });
+
+  const [isOutboxOpen, setIsOutboxOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return !!localStorage.getItem('univmob_admin_token');
   });
 
-  // Load server recent entries on mount
+  // Load telemetry stats and recent entries from server on mount
   useEffect(() => {
-    fetchRecentEntries();
+    fetchTelemetry();
 
     const unsubscribe = OfflineQueueService.subscribe(() => {
       setSessionCount(OfflineQueueService.getSessionCounter());
-      setRecentEntries(OfflineQueueService.getRecentEntries());
+      const recents = OfflineQueueService.getRecentEntries();
+      setRecentEntries(recents);
+      setQueuedCount(OfflineQueueService.getQueue().length);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const fetchRecentEntries = async () => {
+  const fetchTelemetry = async () => {
     try {
-      const res = await fetch('/api/entries/recent?limit=10');
+      const res = await fetch('/api/entries/consolidation-telemetry');
       if (res.ok) {
         const data = await res.json();
-        if (data.entries && Array.isArray(data.entries)) {
-          // Merge with any unsynced offline items from local queue
+        if (typeof data.totalEntries === 'number') {
+          setTotalEntriesCount(data.totalEntries);
+        }
+        if (data.recentConsolidated && Array.isArray(data.recentConsolidated)) {
           const queue = OfflineQueueService.getQueue();
           const queuedTemporary = queue.map((q) => q.temporaryEntry);
-          const combined = [...queuedTemporary, ...data.entries].slice(0, 10);
-          setRecentEntries(combined);
+          const combined = [...queuedTemporary, ...data.recentConsolidated];
+          setRecentEntries(combined.slice(0, 20));
         }
       }
     } catch {
-      // Offline fallback already loaded from localStorage
+      // Offline fallback: rely on local queue and cached recent entries
+      const recents = OfflineQueueService.getRecentEntries();
+      setRecentEntries(recents);
+      setTotalEntriesCount(recents.length);
     }
   };
 
@@ -79,25 +87,15 @@ export default function App() {
     setSelectedUniversity(null);
   };
 
-  const handleEntrySaved = (entry: MobilizationEntry, isOffline: boolean) => {
-    // Increment session counter
-    const nextCount = OfflineQueueService.incrementSessionCounter();
-    setSessionCount(nextCount);
-
-    // Track last saved entry for auto summation trigger
-    setLastSavedEntry(entry);
-
-    // Add to recent entries
-    OfflineQueueService.addRecentEntry(entry);
-    setRecentEntries((prev) => [entry, ...prev.filter((e) => e.id !== entry.id)].slice(0, 10));
+  // Called whenever an entry is saved via the mobilization form
+  const handleEntrySaved = (entry: MobilizationEntry, _isOffline: boolean) => {
+    setRecentEntries((prev) => [entry, ...prev].slice(0, 25));
+    setTotalEntriesCount((prev) => prev + 1);
+    setQueuedCount(OfflineQueueService.getQueue().length);
+    setSessionCount(OfflineQueueService.getSessionCounter());
   };
 
-  const handleResetSessionCounter = () => {
-    OfflineQueueService.resetSessionCounter();
-    setSessionCount(0);
-  };
-
-  const handleAdminLoginSuccess = (token: string, admin?: any) => {
+  const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true);
   };
 
@@ -108,7 +106,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col relative selection:bg-blue-600 selection:text-white">
       {/* App Header */}
       <Header
         selectedUniversity={selectedUniversity}
@@ -118,84 +116,63 @@ export default function App() {
         onOpenOutbox={() => setIsOutboxOpen(true)}
       />
 
-      {/* Offline & Queue Sync Alerts */}
-      <OfflineIndicator onSyncComplete={fetchRecentEntries} />
+      {/* Offline Alert & Background Sync Banner */}
+      <OfflineIndicator onSyncComplete={fetchTelemetry} />
 
       {/* Offline Outbox Modal */}
       <OfflineOutboxModal
         isOpen={isOutboxOpen}
         onClose={() => setIsOutboxOpen(false)}
-        onSyncSuccess={fetchRecentEntries}
+        onSyncSuccess={fetchTelemetry}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-6xl mx-auto pb-16 pt-4 sm:pt-6 px-4 sm:px-6">
+      <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 py-6 space-y-6">
         {!selectedUniversity ? (
-          /* Homepage: Campus Selection Grid & Live Progress */
-          <div className="space-y-8">
-            <UniversitySelector
+          /* Step 1: Select University Once */
+          <UniversitySelector
+            selectedUniversity={selectedUniversity}
+            onSelect={handleUniversitySelect}
+          />
+        ) : (
+          /* Step 2: High-Speed Mobilization Workflow */
+          <div className="space-y-6">
+            {/* Session Counter */}
+            <SessionCounter
+              count={sessionCount}
               selectedUniversity={selectedUniversity}
-              onSelect={handleUniversitySelect}
+              onResetCounter={() => {
+                OfflineQueueService.resetSessionCounter();
+                setSessionCount(0);
+              }}
             />
 
-            {/* Independent School Tallies */}
-            <DataSummation
-              selectedUniversity={null}
-              sessionCount={sessionCount}
-              lastSavedEntry={lastSavedEntry}
-            />
-          </div>
-        ) : (
-          /* Mobilization Entry Mode */
-          <div className="max-w-2xl mx-auto space-y-4">
-            {/* The Rapid Entry Form */}
+            {/* Rapid-Fire Data Entry Form */}
             <MobilizationForm
               selectedUniversity={selectedUniversity}
               onSwitchUniversity={handleSwitchUniversity}
               onEntrySaved={handleEntrySaved}
             />
 
-            {/* Live Summation for Current Campus */}
+            {/* Multi-Method University Summation */}
             <DataSummation
               selectedUniversity={selectedUniversity}
+              onSelectUniversity={handleUniversitySelect}
               sessionCount={sessionCount}
-              lastSavedEntry={lastSavedEntry}
+              lastSavedEntry={recentEntries[0] || null}
             />
 
-            {/* Session Activity Counter */}
-            <SessionCounter
-              count={sessionCount}
-              selectedUniversity={selectedUniversity}
-              onResetCounter={handleResetSessionCounter}
-            />
-
-            {/* Recent Mobilized Contacts */}
+            {/* Recent Entries List */}
             <RecentEntriesList entries={recentEntries} />
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-slate-600 font-medium">
-            <ShieldCheck className="w-4 h-4 text-blue-600" />
-            <span>Campus Mobilization System • Live Google Sheets Sync</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsAdminOpen(true)}
-              className="text-slate-600 hover:text-slate-900 transition font-medium cursor-pointer"
-            >
-              Admin Portal
-            </button>
-            <span>•</span>
-            <span className="flex items-center gap-1 text-slate-600 font-medium">
-              <Wifi className="w-3 h-3 text-emerald-600" />
-              PWA & Offline Ready
-            </span>
-          </div>
+      {/* Clean Original Footer */}
+      <footer className="w-full border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-500">
+        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span className="font-medium">University Mobilization System • 5 Partner Campuses</span>
+          <span>Central Real-Time Google Sheets Integration</span>
         </div>
       </footer>
 

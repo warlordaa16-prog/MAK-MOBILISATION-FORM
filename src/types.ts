@@ -73,6 +73,19 @@ export const UNIVERSITIES: UniversityOption[] = [
   },
 ];
 
+export const MOBILIZATION_METHODS = [
+  { id: 'gate', name: 'Campus Gate / Main Entrance', short: 'Gate Booth', icon: 'DoorOpen' },
+  { id: 'door-to-door', name: 'Door-to-Door / Hostel Outreach', short: 'Hostel Outreach', icon: 'Home' },
+  { id: 'lecture-hall', name: 'Lecture Hall / Class Visitation', short: 'Class Visitation', icon: 'GraduationCap' },
+  { id: 'fellowship', name: 'Fellowship / Evening Rally', short: 'Fellowship', icon: 'Users' },
+  { id: 'one-on-one', name: 'One-on-One Peer Outreach', short: 'One-on-One', icon: 'UserCheck' },
+  { id: 'digital-referral', name: 'Digital / WhatsApp Referral', short: 'Digital Referral', icon: 'Share2' },
+] as const;
+
+export type MobilizationMethodName = typeof MOBILIZATION_METHODS[number]['name'];
+
+export type IntakeChannel = 'rapid-single' | 'multi-part' | 'batch-roster' | 'offline-buffer';
+
 export interface MobilizationEntry {
   id: string;
   fullName: string;
@@ -84,6 +97,9 @@ export interface MobilizationEntry {
   timestamp: string; // ISO 8601
   syncedToGoogleSheets: boolean;
   queuedOffline?: boolean;
+  mobilizerName?: string; // Who entered the data (irrespective of mobilizer)
+  mobilizationMethod?: string; // e.g. Campus Gate, Door-to-Door, Lecture Hall
+  intakeMethod?: IntakeChannel | string; // rapid-single, multi-part, batch-roster
   notes?: string;
 }
 
@@ -92,6 +108,10 @@ export interface SaveEntryPayload {
   telephone: string;
   university: UniversityName;
   allowDuplicate?: boolean;
+  mobilizerName?: string;
+  mobilizationMethod?: string;
+  intakeMethod?: IntakeChannel | string;
+  notes?: string;
 }
 
 export interface SaveEntryResponse {
@@ -139,6 +159,8 @@ export interface DataSummationSummary {
   byUniversity?: Record<string, number>;
   todayByUniversity?: Record<string, number>;
   schoolTiers?: Record<string, SchoolSummationTier>;
+  byMobilizationMethod?: Record<string, number>;
+  byIntakeMethod?: Record<string, number>;
   activeTier?: SchoolSummationTier | null;
   lastEntry?: {
     id: string;
@@ -146,6 +168,8 @@ export interface DataSummationSummary {
     university: string;
     time: string;
     date: string;
+    mobilizationMethod?: string;
+    mobilizerName?: string;
   } | null;
   todayDate?: string;
 }
@@ -153,10 +177,13 @@ export interface DataSummationSummary {
 export interface SchoolSummationTier {
   university: UniversityName | string;
   acronym: string;
-  totalSum: number;
-  todaySum: number;
+  totalSum: number; // Irrespective of who entered it
+  todaySum: number; // Today's count irrespective of who entered it
   syncedSum: number;
   pendingSum: number;
+  byMobilizationMethod?: Record<string, number>; // Door-to-Door, Campus Gate, etc.
+  byIntakeMethod?: Record<string, number>; // Rapid Single, Multi-Station, Batch
+  byMobilizer?: Record<string, number>; // Breakdown by recorder (all summing into this school)
   dailyMilestoneProgress: number;
   dailyMilestoneGoal: number;
   milestonesAchievedToday: number;

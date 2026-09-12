@@ -4,6 +4,9 @@ import { GoogleSheetsService, SheetEntryRow } from './googleSheets';
 
 export interface StoredEntry extends SheetEntryRow {
   syncedToGoogleSheets: boolean;
+  mobilizerName?: string;
+  mobilizationMethod?: string;
+  intakeMethod?: string;
   notes?: string;
   createdAt: string;
 }
@@ -727,6 +730,10 @@ export class LocalStorageManager {
     fullName: string;
     telephone: string;
     university: string;
+    mobilizerName?: string;
+    mobilizationMethod?: string;
+    intakeMethod?: string;
+    notes?: string;
   }): {
     entry: StoredEntry;
     syncedToGoogleSheets: boolean;
@@ -761,6 +768,10 @@ export class LocalStorageManager {
       time,
       timestamp,
       syncedToGoogleSheets: false,
+      mobilizerName: entryData.mobilizerName?.trim() || 'Field Mobilizer',
+      mobilizationMethod: entryData.mobilizationMethod?.trim() || 'Campus Gate / Main Entrance',
+      intakeMethod: entryData.intakeMethod?.trim() || 'rapid-single',
+      notes: entryData.notes,
       createdAt: now.toISOString(),
     };
 
@@ -855,6 +866,11 @@ export class LocalStorageManager {
     const paginated = filtered.slice(offset, offset + limit);
 
     return { entries: paginated, total, page, totalPages };
+  }
+
+  static getRawEntries(): StoredEntry[] {
+    this.init();
+    return [...this.entries];
   }
 
   /**
@@ -968,6 +984,9 @@ export class LocalStorageManager {
       todaySum: number;
       syncedSum: number;
       pendingSum: number;
+      byMobilizationMethod: Record<string, number>;
+      byIntakeMethod: Record<string, number>;
+      byMobilizer: Record<string, number>;
       dailyMilestoneProgress: number;
       dailyMilestoneGoal: number;
       milestonesAchievedToday: number;
@@ -980,6 +999,9 @@ export class LocalStorageManager {
         todaySum: 0,
         syncedSum: 0,
         pendingSum: 0,
+        byMobilizationMethod: {},
+        byIntakeMethod: {},
+        byMobilizer: {},
         dailyMilestoneProgress: 0,
         dailyMilestoneGoal: 50,
         milestonesAchievedToday: 0,
@@ -991,6 +1013,9 @@ export class LocalStorageManager {
         todaySum: 0,
         syncedSum: 0,
         pendingSum: 0,
+        byMobilizationMethod: {},
+        byIntakeMethod: {},
+        byMobilizer: {},
         dailyMilestoneProgress: 0,
         dailyMilestoneGoal: 50,
         milestonesAchievedToday: 0,
@@ -1002,6 +1027,9 @@ export class LocalStorageManager {
         todaySum: 0,
         syncedSum: 0,
         pendingSum: 0,
+        byMobilizationMethod: {},
+        byIntakeMethod: {},
+        byMobilizer: {},
         dailyMilestoneProgress: 0,
         dailyMilestoneGoal: 50,
         milestonesAchievedToday: 0,
@@ -1013,6 +1041,9 @@ export class LocalStorageManager {
         todaySum: 0,
         syncedSum: 0,
         pendingSum: 0,
+        byMobilizationMethod: {},
+        byIntakeMethod: {},
+        byMobilizer: {},
         dailyMilestoneProgress: 0,
         dailyMilestoneGoal: 50,
         milestonesAchievedToday: 0,
@@ -1024,6 +1055,9 @@ export class LocalStorageManager {
         todaySum: 0,
         syncedSum: 0,
         pendingSum: 0,
+        byMobilizationMethod: {},
+        byIntakeMethod: {},
+        byMobilizer: {},
         dailyMilestoneProgress: 0,
         dailyMilestoneGoal: 50,
         milestonesAchievedToday: 0,
@@ -1032,9 +1066,34 @@ export class LocalStorageManager {
 
     const byUniversity: Record<string, number> = {};
     const todayByUniversity: Record<string, number> = {};
+    const globalByMobilizationMethod: Record<string, number> = {};
+    const globalByIntakeMethod: Record<string, number> = {};
+    let grandTotal = 0;
+    let todayTotal = 0;
+    let totalSynced = 0;
+    let totalPending = 0;
 
     for (const e of this.entries) {
+      grandTotal++;
+      if (e.syncedToGoogleSheets) {
+        totalSynced++;
+      } else {
+        totalPending++;
+      }
+
+      if (e.date === todayDate) {
+        todayTotal++;
+      }
+
+      const mobMethod = e.mobilizationMethod || 'Campus Gate / Main Entrance';
+      const inMethod = e.intakeMethod || 'rapid-single';
+      const mobilizer = e.mobilizerName || 'Field Mobilizer';
+
+      globalByMobilizationMethod[mobMethod] = (globalByMobilizationMethod[mobMethod] || 0) + 1;
+      globalByIntakeMethod[inMethod] = (globalByIntakeMethod[inMethod] || 0) + 1;
+
       if (schoolTiers[e.university]) {
+        // Sum irrespective of who entered it
         schoolTiers[e.university].totalSum++;
         if (e.date === todayDate) {
           schoolTiers[e.university].todaySum++;
@@ -1045,6 +1104,14 @@ export class LocalStorageManager {
         } else {
           schoolTiers[e.university].pendingSum++;
         }
+
+        // Method-specific tallies for this specific university
+        schoolTiers[e.university].byMobilizationMethod[mobMethod] =
+          (schoolTiers[e.university].byMobilizationMethod[mobMethod] || 0) + 1;
+        schoolTiers[e.university].byIntakeMethod[inMethod] =
+          (schoolTiers[e.university].byIntakeMethod[inMethod] || 0) + 1;
+        schoolTiers[e.university].byMobilizer[mobilizer] =
+          (schoolTiers[e.university].byMobilizer[mobilizer] || 0) + 1;
       }
 
       byUniversity[e.university] = (byUniversity[e.university] || 0) + 1;
@@ -1063,11 +1130,17 @@ export class LocalStorageManager {
     const last = this.entries.length > 0 ? this.entries[this.entries.length - 1] : null;
 
     return {
+      grandTotal,
+      todayTotal,
+      totalSynced,
+      totalPending,
       schoolTiers,
       activeUniversity: forUniversity || null,
       activeTier,
       byUniversity,
       todayByUniversity,
+      byMobilizationMethod: globalByMobilizationMethod,
+      byIntakeMethod: globalByIntakeMethod,
       activeUniversityTotal: activeTier ? activeTier.totalSum : 0,
       activeUniversityToday: activeTier ? activeTier.todaySum : 0,
       lastEntry: last
@@ -1077,6 +1150,8 @@ export class LocalStorageManager {
             university: last.university,
             time: last.time,
             date: last.date,
+            mobilizationMethod: last.mobilizationMethod || 'Campus Gate / Main Entrance',
+            mobilizerName: last.mobilizerName || 'Field Mobilizer',
           }
         : null,
       todayDate,

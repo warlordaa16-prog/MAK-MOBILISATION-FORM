@@ -138,6 +138,10 @@ export class OfflineQueueService {
       timestamp: now.toISOString(),
       syncedToGoogleSheets: false,
       queuedOffline: true,
+      mobilizerName: payload.mobilizerName || 'Field Mobilizer',
+      mobilizationMethod: payload.mobilizationMethod || 'Campus Gate / Main Entrance',
+      intakeMethod: payload.intakeMethod || 'rapid-single',
+      notes: payload.notes,
     };
 
     const queuedItem: QueuedEntry = {
@@ -162,6 +166,63 @@ export class OfflineQueueService {
     this.notify();
 
     return queuedItem;
+  }
+
+  static addMultipleToQueue(payloads: SaveEntryPayload[]): QueuedEntry[] {
+    const queue = this.getQueue();
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+
+    const added: QueuedEntry[] = [];
+    let curCount = queue.length;
+
+    for (const payload of payloads) {
+      curCount++;
+      const queueId = 'queue_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const temporaryEntry: MobilizationEntry = {
+        id: `OFF-${String(curCount).padStart(3, '0')}`,
+        fullName: payload.fullName.trim(),
+        telephone: payload.telephone,
+        university: payload.university,
+        date: `${day}/${month}/${year}`,
+        time: `${hours}:${minutes}`,
+        timestamp: now.toISOString(),
+        syncedToGoogleSheets: false,
+        queuedOffline: true,
+        mobilizerName: payload.mobilizerName || 'Field Mobilizer',
+        mobilizationMethod: payload.mobilizationMethod || 'Campus Gate / Main Entrance',
+        intakeMethod: payload.intakeMethod || 'multi-part',
+        notes: payload.notes,
+      };
+
+      const item: QueuedEntry = {
+        ...payload,
+        fullName: payload.fullName.trim(),
+        queueId,
+        queuedAt: now.toISOString(),
+        temporaryEntry,
+      };
+
+      queue.push(item);
+      added.push(item);
+      this.addRecentEntry(temporaryEntry);
+    }
+
+    try {
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    } catch (e) {
+      console.warn('Failed to store batch queue items', e);
+    }
+
+    this.incrementSessionCounter(added.length);
+    this.playSuccessChime(true);
+    this.notify();
+
+    return added;
   }
 
   static removeFromQueue(queueId: string) {
@@ -260,6 +321,70 @@ export class OfflineQueueService {
     URL.revokeObjectURL(url);
   }
 
+  // Universal Data Safe-Keep: Download all stored data (both offline queue and cached records)
+  static exportAllKeptData(format: 'csv' | 'json' = 'csv') {
+    const queue = this.getQueue().map((q) => q.temporaryEntry);
+    const recents = this.getRecentEntries();
+    
+    // De-duplicate by phone or ID
+    const seenPhones = new Set<string>();
+    const combined: MobilizationEntry[] = [];
+    
+    [...queue, ...recents].forEach((item) => {
+      if (!seenPhones.has(item.telephone)) {
+        seenPhones.add(item.telephone);
+        combined.push(item);
+      }
+    });
+
+    if (combined.length === 0) {
+      // If client cache is empty, trigger server download
+      window.location.href = `/api/entries/export-kept?format=${format}`;
+      return;
+    }
+
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify({ count: combined.length, entries: combined }, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `kept_mobilization_data_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // CSV format
+    const headers = ['ID', 'Full Name', 'Telephone', 'University', 'Date', 'Time', 'Mobilizer', 'Outreach Method', 'Intake Channel', 'Sync Status'];
+    const rows = combined.map((e) => [
+      `"${e.id}"`,
+      `"${(e.fullName || '').replace(/"/g, '""')}"`,
+      `"${e.telephone}"`,
+      `"${(e.university || '').replace(/"/g, '""')}"`,
+      `"${e.date}"`,
+      `"${e.time}"`,
+      `"${(e.mobilizerName || 'Field Mobilizer').replace(/"/g, '""')}"`,
+      `"${(e.mobilizationMethod || 'Direct Outreach').replace(/"/g, '""')}"`,
+      `"${(e.intakeMethod || 'rapid-single').replace(/"/g, '""')}"`,
+      `"${e.queuedOffline ? 'KEPT OFFLINE' : e.syncedToGoogleSheets ? 'SYNCED' : 'PENDING'}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `kept_mobilization_data_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   // Recent entries for fast local display
   static getRecentEntries(): MobilizationEntry[] {
     try {
@@ -315,9 +440,9 @@ export class OfflineQueueService {
     }
   }
 
-  static incrementSessionCounter(): number {
+  static incrementSessionCounter(by: number = 1): number {
     const current = this.getSessionCounter();
-    const next = current + 1;
+    const next = current + by;
     try {
       sessionStorage.setItem(SESSION_COUNTER_KEY, String(next));
     } catch {}
