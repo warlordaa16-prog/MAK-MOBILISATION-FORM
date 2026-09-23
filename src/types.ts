@@ -1,9 +1,5 @@
 export type UniversityName =
-  | 'Kampala International University (KIU)'
-  | 'Cavendish University Uganda'
-  | 'International University of East Africa (IUEA)'
-  | 'Clarke International University (CIU)'
-  | 'King Caesar University (KCU)';
+  | 'Kampala International University (KIU)';
 
 export type AdminRole = 'SYSTEM_ADMIN' | 'UNIVERSITY_ADMIN';
 
@@ -34,42 +30,6 @@ export const UNIVERSITIES: UniversityOption[] = [
     campus: 'Kansanga / Ishaka',
     color: 'border-emerald-600 text-emerald-700 bg-emerald-50',
     accentBg: 'bg-emerald-600',
-  },
-  {
-    id: 'cavendish',
-    name: 'Cavendish University Uganda',
-    shortName: 'Cavendish University',
-    acronym: 'CUU',
-    campus: 'Nsambya / Kingsgate',
-    color: 'border-blue-600 text-blue-700 bg-blue-50',
-    accentBg: 'bg-blue-600',
-  },
-  {
-    id: 'iuea',
-    name: 'International University of East Africa (IUEA)',
-    shortName: 'Int. University of East Africa',
-    acronym: 'IUEA',
-    campus: 'Kansanga Main Campus',
-    color: 'border-purple-600 text-purple-700 bg-purple-50',
-    accentBg: 'bg-purple-600',
-  },
-  {
-    id: 'ciu',
-    name: 'Clarke International University (CIU)',
-    shortName: 'Clarke Int. University',
-    acronym: 'CIU',
-    campus: 'Muyenga / Bukoto',
-    color: 'border-amber-600 text-amber-700 bg-amber-50',
-    accentBg: 'bg-amber-600',
-  },
-  {
-    id: 'kcu',
-    name: 'King Caesar University (KCU)',
-    shortName: 'King Caesar University',
-    acronym: 'KCU',
-    campus: 'Ggaba / Bunga Campus',
-    color: 'border-rose-600 text-rose-700 bg-rose-50',
-    accentBg: 'bg-rose-600',
   },
 ];
 

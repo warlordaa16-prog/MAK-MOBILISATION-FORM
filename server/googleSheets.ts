@@ -12,15 +12,9 @@ export interface SheetEntryRow {
 
 export const UNIVERSITY_WORKSHEET_MAP: Record<string, string> = {
   'Kampala International University (KIU)': 'KIU',
-  'Cavendish University Uganda': 'CAVENDISH',
-  'International University of East Africa (IUEA)': 'IUEA',
-  'Clarke International University (CIU)': 'CIU',
-  'King Caesar University (KCU)': 'KCU',
-  // Backward compatibility alias
-  'Kumi University (KCU)': 'KCU',
 };
 
-export const REQUIRED_WORKSHEETS = ['KIU', 'CAVENDISH', 'IUEA', 'CIU', 'KCU'];
+export const REQUIRED_WORKSHEETS = ['KIU'];
 export const WORKSHEET_HEADERS = ['ID', 'FULL NAME', 'TELEPHONE NUMBER', 'UNIVERSITY', 'DATE', 'TIME', 'TIMESTAMP'];
 
 export class GoogleSheetsService {
@@ -88,17 +82,13 @@ export class GoogleSheetsService {
     // Check partial matches or acronyms
     const upper = trimmed.toUpperCase();
     if (upper.includes('KIU') || upper.includes('KAMPALA INTERNATIONAL')) return 'KIU';
-    if (upper.includes('CAVENDISH')) return 'CAVENDISH';
-    if (upper.includes('IUEA') || upper.includes('EAST AFRICA')) return 'IUEA';
-    if (upper.includes('CLARKE') || upper.includes('CIU')) return 'CIU';
-    if (upper.includes('KING CAESAR') || upper.includes('KCU') || upper.includes('KUMI')) return 'KCU';
 
     return 'KIU'; // default fallback
   }
 
   /**
-   * Ensures that all five required university worksheets exist with exact headers:
-   * KIU, CAVENDISH, IUEA, CIU, KCU
+   * Ensures that the required KIU university worksheet exists with exact headers:
+   * KIU
    */
   static async ensureWorksheetsAndHeaders(): Promise<void> {
     if (this.sheetsEnsured || !this.isConfigured()) {
@@ -140,7 +130,7 @@ export class GoogleSheetsService {
         });
       }
 
-      // 3. Ensure header row in each of the 5 university worksheets
+      // 3. Ensure header row in the KIU worksheet
       for (const tab of REQUIRED_WORKSHEETS) {
         try {
           const headerCheck = await sheets.spreadsheets.values.get({
@@ -172,12 +162,8 @@ export class GoogleSheetsService {
   }
 
   /**
-   * Appends an entry strictly to its designated university worksheet.
+   * Appends an entry strictly to its designated KIU worksheet.
    * KIU -> KIU worksheet
-   * Cavendish -> CAVENDISH worksheet
-   * IUEA -> IUEA worksheet
-   * CIU -> CIU worksheet
-   * KCU -> KCU worksheet
    */
   static async appendEntry(entry: SheetEntryRow): Promise<{ success: boolean; targetTab: string; updatedRange?: string }> {
     if (!this.isConfigured()) {

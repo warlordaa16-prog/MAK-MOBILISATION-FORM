@@ -6,14 +6,29 @@
       // Filter benign Vite HMR websocket connection notices in sandboxed dev container
       (function() {
         const _origError = console.error;
+        const _origWarn = console.warn;
         console.error = function(...args) {
-          const msg = args[0] !== undefined && args[0] !== null ? String(args[0]) : '';
-          if (msg.includes('[vite] failed to connect to websocket') || msg.includes('[vite] connect') || (msg.startsWith('[vite]') && !msg.toLowerCase().includes('syntax'))) {
+          const msg = args.map(a => (a !== undefined && a !== null ? String(a) : '')).join(' ');
+          if (msg.includes('[vite]') && !msg.toLowerCase().includes('syntax')) {
             console.debug(...args);
             return;
           }
           _origError.apply(console, args);
         };
+        console.warn = function(...args) {
+          const msg = args.map(a => (a !== undefined && a !== null ? String(a) : '')).join(' ');
+          if (msg.includes('[vite]')) {
+            console.debug(...args);
+            return;
+          }
+          _origWarn.apply(console, args);
+        };
+        window.addEventListener('error', function(e) {
+          if (e.message && e.message.includes('[vite]') && !e.message.toLowerCase().includes('syntax')) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
       })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -22,7 +37,7 @@
     <meta property="og:title" content="University Mobilization Data Collection System" />
     <meta property="og:description" content="Fast, mobile-first data collection system for university mobilizers to rapidly record contacts into Google Sheets." />
     <meta property="og:type" content="website" />
-    <meta name="theme-color" content="#05080e" />
+    <meta name="theme-color" content="#23173f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -33,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-[#05080e] text-slate-100 antialiased selection:bg-cyan-500 selection:text-black">
+  <body class="bg-[#23173f] text-slate-100 antialiased selection:bg-[#ff4f46] selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

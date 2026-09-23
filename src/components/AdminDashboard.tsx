@@ -35,6 +35,7 @@ import {
 import { UNIVERSITIES, UniversityName, AdminRole, AdminUser, SchoolNotification } from '../types';
 import { GoogleSheetsGuideModal } from './GoogleSheetsGuideModal';
 import { CSVExportModal } from './CSVExportModal';
+import { OfflineQueueService } from '../services/offlineQueue';
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -46,27 +47,15 @@ interface AdminDashboardProps {
 
 const UNIVERSITY_ACRONYMS: Record<string, string> = {
   'Kampala International University (KIU)': 'KIU',
-  'Cavendish University Uganda': 'CAVENDISH',
-  'International University of East Africa (IUEA)': 'IUEA',
-  'Clarke International University (CIU)': 'CIU',
-  'King Caesar University (KCU)': 'KCU',
 };
 
 const UNIVERSITY_SLUGS: Record<string, string> = {
   'Kampala International University (KIU)': 'kiu',
-  'Cavendish University Uganda': 'cavendish',
-  'International University of East Africa (IUEA)': 'iuea',
-  'Clarke International University (CIU)': 'ciu',
-  'King Caesar University (KCU)': 'kcu',
 };
 
 const DEFAULT_ACCOUNTS = [
   { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kiu_admin', pass: 'KIU Ignite', label: 'KIU Admin', univ: 'Kampala International University (KIU)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'cuu_admin', pass: 'CUU Ignite', label: 'CUU Admin (Cavendish)', univ: 'Cavendish University Uganda' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'iuea_admin', pass: 'IUEA Ignite', label: 'IUEA Admin', univ: 'International University of East Africa (IUEA)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'ciu_admin', pass: 'CIU Ignite', label: 'CIU Admin', univ: 'Clarke International University (CIU)' },
-  { role: 'UNIVERSITY_ADMIN' as AdminRole, username: 'kcu_admin', pass: 'KCU Ignite', label: 'KCU Admin', univ: 'King Caesar University (KCU)' },
-  { role: 'SYSTEM_ADMIN' as AdminRole, username: 'MOBILISATION', pass: 'Super Ignite', label: 'Super Admin (Central)', univ: null },
+  { role: 'SYSTEM_ADMIN' as AdminRole, username: 'MOBILISATION', pass: 'Super Ignite', label: 'Super Admin (KIU Central)', univ: null },
 ];
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -453,6 +442,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const [isExportingData, setIsExportingData] = useState(false);
+  const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
+
+  const handleExportData = async (targetUniv?: string) => {
+    setIsExportingData(true);
+    try {
+      const params = new URLSearchParams();
+      const univ = targetUniv || (isUniversityAdmin ? universityFullName : (selectedUnivFilter !== 'all' ? selectedUnivFilter : 'all'));
+      if (univ && univ !== 'all') {
+        params.set('university', univ);
+      }
+      const res = await fetch(`/api/admin/export?${params.toString()}`, {
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) {
+        throw new Error(`Export failed with status: ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `kiu_mobilization_accumulated_${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setExportSuccessMessage('Mobilization entries downloaded successfully as CSV.');
+      setTimeout(() => setExportSuccessMessage(null), 4000);
+    } catch (err) {
+      console.error('Direct CSV export error, falling back to local entries:', err);
+      OfflineQueueService.exportAllKeptData('csv');
+      setExportSuccessMessage('Downloaded accumulated mobilization entries.');
+      setTimeout(() => setExportSuccessMessage(null), 4000);
+    } finally {
+      setIsExportingData(false);
+    }
+  };
+
   const openExportModalForUniversity = (targetUniv: string) => {
     setExportUniversityTarget(targetUniv);
     setShowExportModal(true);
@@ -473,15 +501,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         id="admin-dashboard-container"
         className="relative w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-4 flex flex-col max-h-[92vh]"
       >
-        {/* Modal Top Bar - Clean and Unbranded */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
+        {/* Modal Top Bar - Violet-Indigo & Coral Glass Aesthetic */}
+        <div className="px-6 py-4 bg-[#1f1338] text-white flex items-center justify-between shrink-0 border-b border-purple-500/20">
           <div className="flex items-center gap-3">
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-sm ${
-                isUniversityAdmin ? 'bg-gradient-to-br from-blue-600 to-indigo-700' : 'bg-gradient-to-br from-red-600 to-rose-700'
-              }`}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md bg-gradient-to-tr from-[#ff4d46] to-[#e63548] border border-rose-400/30"
             >
-              {isUniversityAdmin ? universityAcronym : <Shield className="w-5 h-5" />}
+              {isUniversityAdmin ? universityAcronym : <Shield className="w-5 h-5 text-white" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -489,17 +515,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {isUniversityAdmin ? `${universityAcronym} Administration` : 'System Administration'}
                 </h2>
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    isUniversityAdmin
-                      ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30'
-                      : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
-                  }`}
+                  className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#ff4d46]/20 text-[#ff8f8f] border border-[#ff4d46]/40"
                 >
                   {isUniversityAdmin ? 'Campus Admin' : 'Super Admin'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 truncate max-w-sm sm:max-w-md">
-                {isUniversityAdmin ? universityFullName : 'All Institutions Overview'}
+              <p className="text-xs text-purple-200/70 truncate max-w-sm sm:max-w-md">
+                {isUniversityAdmin ? universityFullName : 'Kampala International University Overview'}
               </p>
             </div>
           </div>
@@ -638,16 +660,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               )}
             </div>
 
-            {/* Prominent one-click Export CSV button */}
+            {/* Prominent Export Data feature */}
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => openExportModalForUniversity(isUniversityAdmin ? universityFullName : (selectedUnivFilter === 'all' ? 'all' : selectedUnivFilter))}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-[0.98] cursor-pointer"
-                title="Export CSV"
+                id="admin-export-data-btn"
+                onClick={() => handleExportData()}
+                disabled={isExportingData}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#ff4d46] to-[#e63548] hover:from-[#ff6157] hover:to-[#f24959] text-white text-xs font-black shadow-md shadow-rose-950/30 transition active:scale-[0.98] cursor-pointer disabled:opacity-60"
+                title="Download accumulated mobilization entries as a CSV file"
               >
-                <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden sm:inline">Export</span> CSV
+                <Download className={`w-3.5 h-3.5 stroke-[2.5] ${isExportingData ? 'animate-bounce' : ''}`} />
+                <span>{isExportingData ? 'Exporting...' : 'Export Data'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openExportModalForUniversity(isUniversityAdmin ? universityFullName : (selectedUnivFilter === 'all' ? 'all' : selectedUnivFilter))}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                title="Custom Export Filters & Options"
+              >
+                <Sliders className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -738,7 +770,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     id="admin-submit-login-btn"
                     type="submit"
                     disabled={isLoggingIn}
-                    className="w-full mt-2 py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-md transition active:scale-[0.99] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff4d46] to-[#e63548] hover:from-[#ff6157] hover:to-[#f24959] text-white font-black text-sm shadow-md shadow-rose-950/30 transition active:scale-[0.99] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                   >
                     {isLoggingIn ? (
                       <>
@@ -799,6 +831,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {exportSuccessMessage && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-800 flex items-center gap-2 shadow-xs">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-semibold">{exportSuccessMessage}</span>
+                    </div>
+                  )}
 
                   {syncFeedback && (
                     <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center gap-2">
@@ -996,11 +1035,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                         <button
                           type="button"
-                          onClick={() => openExportModalForUniversity(universityFullName)}
-                          className="text-xs font-bold text-rose-600 hover:text-rose-800 transition cursor-pointer flex items-center gap-1"
+                          onClick={() => handleExportData(universityFullName)}
+                          disabled={isExportingData}
+                          className="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                          title="Download accumulated mobilization entries as a CSV file"
                         >
-                          <Download className="w-3 h-3" />
-                          <span>Export CSV</span>
+                          <Download className={`w-3 h-3 ${isExportingData ? 'animate-bounce' : ''}`} />
+                          <span>{isExportingData ? 'Exporting...' : 'Export Data'}</span>
                         </button>
                         <button
                           type="button"
@@ -1053,11 +1094,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
 
                       <button
-                        onClick={() => openExportModalForUniversity(universityFullName)}
-                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        onClick={() => handleExportData(universityFullName)}
+                        disabled={isExportingData}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                        title="Download accumulated mobilization entries as a CSV file"
                       >
-                        <Download className="w-3 h-3" />
-                        <span>Export CSV</span>
+                        <Download className={`w-3 h-3 ${isExportingData ? 'animate-bounce' : ''}`} />
+                        <span>{isExportingData ? 'Exporting...' : 'Export Data'}</span>
                       </button>
                     </div>
                   </div>
@@ -1334,28 +1377,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg sm:text-xl font-black text-slate-900">
-                          Cross-University Mobilization Overview
+                          Kampala International University Mobilization Overview
                         </h3>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          5 Participating Institutions
+                          KIU Active Portal
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
-                        Central multi-worksheet pipeline: KIU, CAVENDISH, IUEA, CIU, KCU
+                        Central Google Sheets pipeline: KIU Worksheet (Kansanga & Ishaka)
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         id="system-admin-export-all-csv-btn"
-                        onClick={() => openExportModalForUniversity('all')}
-                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                        onClick={() => handleExportData('all')}
+                        disabled={isExportingData}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-60"
+                        title="Download accumulated mobilization entries as a CSV file"
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Export All CSV</span>
+                        <Download className={`w-3.5 h-3.5 ${isExportingData ? 'animate-bounce' : ''}`} />
+                        <span>{isExportingData ? 'Exporting Data...' : 'Export Data'}</span>
+                      </button>
+                      <button
+                        onClick={() => openExportModalForUniversity('all')}
+                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                        title="Advanced Export Filters"
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
+
+                  {exportSuccessMessage && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-800 flex items-center gap-2 shadow-xs">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-semibold">{exportSuccessMessage}</span>
+                    </div>
+                  )}
 
                   {/* System High-Level Figures */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
@@ -1367,7 +1426,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {stats?.totalEntries ?? 0}
                       </div>
                       <span className="text-[11px] text-slate-500 mt-1 block">
-                        Across all 5 universities
+                        Kampala International University
                       </span>
                     </div>
 
@@ -1379,7 +1438,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {stats?.todayEntries ?? 0}
                       </div>
                       <span className="text-[11px] text-emerald-600/80 mt-1 block">
-                        All campuses combined
+                        KIU Today's Count
                       </span>
                     </div>
 
@@ -1391,7 +1450,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {stats?.totalSynced ?? 0}
                       </div>
                       <span className="text-[11px] text-slate-500 mt-1 block">
-                        Sent to 5 tabs
+                        Sent to KIU Sheet
                       </span>
                     </div>
 
@@ -1520,11 +1579,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
 
                       <button
-                        onClick={() => openExportModalForUniversity(selectedUnivFilter)}
-                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        onClick={() => handleExportData(selectedUnivFilter)}
+                        disabled={isExportingData}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-60"
+                        title="Download accumulated mobilization entries as a CSV file"
                       >
-                        <Download className="w-3 h-3" />
-                        <span>Export CSV</span>
+                        <Download className={`w-3 h-3 ${isExportingData ? 'animate-bounce' : ''}`} />
+                        <span>{isExportingData ? 'Exporting...' : 'Export Data'}</span>
                       </button>
                     </div>
                   </div>
@@ -1685,26 +1746,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Configured University Worksheet Tabs
                       </span>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                      <div className="max-w-xs">
                         {[
-                          { tab: 'KIU', name: 'Kampala Int. University', count: stats?.byUniversity?.['Kampala International University (KIU)'] ?? 0 },
-                          { tab: 'CAVENDISH', name: 'Cavendish University', count: stats?.byUniversity?.['Cavendish University Uganda'] ?? 0 },
-                          { tab: 'IUEA', name: 'Int. Univ of East Africa', count: stats?.byUniversity?.['International University of East Africa (IUEA)'] ?? 0 },
-                          { tab: 'CIU', name: 'Clarke Int. University', count: stats?.byUniversity?.['Clarke International University (CIU)'] ?? 0 },
-                          { tab: 'KCU', name: 'King Caesar University', count: stats?.byUniversity?.['King Caesar University (KCU)'] ?? 0 },
+                          { tab: 'KIU', name: 'Kampala Int. University (Kansanga & Ishaka)', count: stats?.byUniversity?.['Kampala International University (KIU)'] ?? 0 },
                         ].map((sheet) => (
                           <div
                             key={sheet.tab}
-                            className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"
+                            className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center"
                           >
                             <span className="text-[10px] font-mono text-slate-400 block">WORKSHEET</span>
-                            <span className="text-base font-black text-slate-900 block mt-0.5">
+                            <span className="text-lg font-black text-slate-900 block mt-0.5">
                               {sheet.tab}
                             </span>
-                            <span className="text-[10px] text-slate-500 truncate block mt-0.5">
+                            <span className="text-xs text-slate-500 truncate block mt-0.5">
                               {sheet.name}
                             </span>
-                            <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full inline-block mt-2">
+                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full inline-block mt-2">
                               {sheet.count} entries
                             </span>
                           </div>

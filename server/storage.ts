@@ -31,28 +31,14 @@ export interface AppSettings {
 
 export const UNIVERSITY_LIST = [
   'Kampala International University (KIU)',
-  'Cavendish University Uganda',
-  'International University of East Africa (IUEA)',
-  'Clarke International University (CIU)',
-  'King Caesar University (KCU)',
 ] as const;
 
 export const UNIVERSITY_ACRONYM_MAP: Record<string, string> = {
   'Kampala International University (KIU)': 'KIU',
-  'Cavendish University Uganda': 'CUU',
-  'International University of East Africa (IUEA)': 'IUEA',
-  'Clarke International University (CIU)': 'CIU',
-  'King Caesar University (KCU)': 'KCU',
-  // Backward compatibility
-  'Kumi University (KCU)': 'KCU',
 };
 
 export const UNIVERSITY_SLUG_MAP: Record<string, string> = {
   'Kampala International University (KIU)': 'kiu',
-  'Cavendish University Uganda': 'cavendish',
-  'International University of East Africa (IUEA)': 'iuea',
-  'Clarke International University (CIU)': 'ciu',
-  'King Caesar University (KCU)': 'kcu',
 };
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -115,10 +101,10 @@ export class LocalStorageManager {
         this.entries = JSON.parse(raw);
         let migrated = false;
 
-        // 1. Normalize any old "Kumi" labels to "King Caesar University (KCU)"
+        // 1. Normalize any non-KIU entries to "Kampala International University (KIU)"
         for (const e of this.entries) {
-          if (e.university === 'Kumi University (KCU)') {
-            e.university = 'King Caesar University (KCU)';
+          if (e.university !== 'Kampala International University (KIU)') {
+            e.university = 'Kampala International University (KIU)';
             migrated = true;
           }
         }
@@ -181,11 +167,9 @@ export class LocalStorageManager {
       const officialPasswords: Record<string, string> = {
         'admin-system': 'Super Ignite',
         'admin-kiu': 'KIU Ignite',
-        'admin-ciu': 'CIU Ignite',
-        'admin-kcu': 'KCU Ignite',
-        'admin-iuea': 'IUEA Ignite',
-        'admin-cavendish': 'CUU Ignite',
       };
+      // Keep only KIU and super admin accounts
+      this.adminUsers = this.adminUsers.filter((a) => a.id === 'admin-system' || a.id === 'admin-kiu');
       let passwordsMigrated = false;
       for (const a of this.adminUsers) {
         if (officialPasswords[a.id] && a.password !== officialPasswords[a.id]) {
@@ -238,46 +222,6 @@ export class LocalStorageManager {
         universityAcronym: 'KIU',
         createdAt: new Date().toISOString(),
       },
-      {
-        id: 'admin-cavendish',
-        username: 'cuu_admin',
-        password: 'CUU Ignite',
-        displayName: 'CUU Cavendish University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'Cavendish University Uganda',
-        universityAcronym: 'CUU',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'admin-iuea',
-        username: 'iuea_admin',
-        password: 'IUEA Ignite',
-        displayName: 'IUEA University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'International University of East Africa (IUEA)',
-        universityAcronym: 'IUEA',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'admin-ciu',
-        username: 'ciu_admin',
-        password: 'CIU Ignite',
-        displayName: 'CIU University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'Clarke International University (CIU)',
-        universityAcronym: 'CIU',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'admin-kcu',
-        username: 'kcu_admin',
-        password: 'KCU Ignite',
-        displayName: 'King Caesar University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'King Caesar University (KCU)',
-        universityAcronym: 'KCU',
-        createdAt: new Date().toISOString(),
-      },
     ];
   }
 
@@ -298,7 +242,7 @@ export class LocalStorageManager {
         id: '2',
         fullName: 'Aisha Nakitto',
         telephone: '0752345678',
-        university: 'Cavendish University Uganda',
+        university: 'Kampala International University (KIU)',
         date: '08/09/2026',
         time: '11:30',
         timestamp: '2026-09-08T11:30:00+03:00',
@@ -309,7 +253,7 @@ export class LocalStorageManager {
         id: '3',
         fullName: 'Emmanuel Okello',
         telephone: '0773456789',
-        university: 'International University of East Africa (IUEA)',
+        university: 'Kampala International University (KIU)',
         date: '08/09/2026',
         time: '14:20',
         timestamp: '2026-09-08T14:20:00+03:00',
@@ -320,7 +264,7 @@ export class LocalStorageManager {
         id: '4',
         fullName: 'Grace Nabirye',
         telephone: '0784567890',
-        university: 'Clarke International University (CIU)',
+        university: 'Kampala International University (KIU)',
         date: '09/09/2026',
         time: '08:45',
         timestamp: '2026-09-09T08:45:00+03:00',
@@ -331,7 +275,7 @@ export class LocalStorageManager {
         id: '5',
         fullName: 'Moses Opolot',
         telephone: '0705678901',
-        university: 'King Caesar University (KCU)',
+        university: 'Kampala International University (KIU)',
         date: '09/09/2026',
         time: '10:05',
         timestamp: '2026-09-09T10:05:00+03:00',
@@ -599,63 +543,7 @@ export class LocalStorageManager {
       };
     }
 
-    // 3. CIU Administrator (Password: CIU Ignite)
-    if (isMatch('ciu_admin', ['ciu', 'ciu_admin', 'clarke international', 'ciu ignite', 'ciu admin'], 'CIU Ignite')) {
-      return {
-        id: 'admin-ciu',
-        username: 'ciu_admin',
-        password: 'CIU Ignite',
-        displayName: 'CIU University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'Clarke International University (CIU)',
-        universityAcronym: 'CIU',
-        createdAt: new Date().toISOString(),
-      };
-    }
-
-    // 4. KCU Administrator (Password: KCU Ignite)
-    if (isMatch('kcu_admin', ['kcu', 'kcu_admin', 'king caesar', 'kcu ignite', 'kcu admin'], 'KCU Ignite')) {
-      return {
-        id: 'admin-kcu',
-        username: 'kcu_admin',
-        password: 'KCU Ignite',
-        displayName: 'King Caesar University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'King Caesar University (KCU)',
-        universityAcronym: 'KCU',
-        createdAt: new Date().toISOString(),
-      };
-    }
-
-    // 5. IUEA Administrator (Password: IUEA Ignite)
-    if (isMatch('iuea_admin', ['iuea', 'iuea_admin', 'east africa', 'iuea ignite', 'iuea admin'], 'IUEA Ignite')) {
-      return {
-        id: 'admin-iuea',
-        username: 'iuea_admin',
-        password: 'IUEA Ignite',
-        displayName: 'IUEA University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'International University of East Africa (IUEA)',
-        universityAcronym: 'IUEA',
-        createdAt: new Date().toISOString(),
-      };
-    }
-
-    // 6. CUU / Cavendish Administrator (Password: CUU Ignite)
-    if (isMatch('cuu_admin', ['cuu', 'cuu_admin', 'cavendish', 'cavendish_admin', 'cuu ignite', 'cuu admin'], 'CUU Ignite')) {
-      return {
-        id: 'admin-cavendish',
-        username: 'cuu_admin',
-        password: 'CUU Ignite',
-        displayName: 'CUU Cavendish University Administrator',
-        role: 'UNIVERSITY_ADMIN',
-        university: 'Cavendish University Uganda',
-        universityAcronym: 'CUU',
-        createdAt: new Date().toISOString(),
-      };
-    }
-
-    // 7. Dynamic check against this.adminUsers for custom updated passwords
+    // Dynamic check against this.adminUsers for custom updated passwords
     const found = this.adminUsers.find((a) => {
       const passMatches = a.password === p || clean(a.password) === pClean;
       if (!passMatches) return false;
@@ -910,18 +798,10 @@ export class LocalStorageManager {
     // System Admin central statistics
     const byUniversity: Record<string, number> = {
       'Kampala International University (KIU)': 0,
-      'Cavendish University Uganda': 0,
-      'International University of East Africa (IUEA)': 0,
-      'Clarke International University (CIU)': 0,
-      'King Caesar University (KCU)': 0,
     };
 
     const todayByUniversity: Record<string, number> = {
       'Kampala International University (KIU)': 0,
-      'Cavendish University Uganda': 0,
-      'International University of East Africa (IUEA)': 0,
-      'Clarke International University (CIU)': 0,
-      'King Caesar University (KCU)': 0,
     };
 
     const byDate: Record<string, number> = {};
@@ -995,62 +875,6 @@ export class LocalStorageManager {
       'Kampala International University (KIU)': {
         university: 'Kampala International University (KIU)',
         acronym: 'KIU',
-        totalSum: 0,
-        todaySum: 0,
-        syncedSum: 0,
-        pendingSum: 0,
-        byMobilizationMethod: {},
-        byIntakeMethod: {},
-        byMobilizer: {},
-        dailyMilestoneProgress: 0,
-        dailyMilestoneGoal: 50,
-        milestonesAchievedToday: 0,
-      },
-      'Cavendish University Uganda': {
-        university: 'Cavendish University Uganda',
-        acronym: 'CUU',
-        totalSum: 0,
-        todaySum: 0,
-        syncedSum: 0,
-        pendingSum: 0,
-        byMobilizationMethod: {},
-        byIntakeMethod: {},
-        byMobilizer: {},
-        dailyMilestoneProgress: 0,
-        dailyMilestoneGoal: 50,
-        milestonesAchievedToday: 0,
-      },
-      'International University of East Africa (IUEA)': {
-        university: 'International University of East Africa (IUEA)',
-        acronym: 'IUEA',
-        totalSum: 0,
-        todaySum: 0,
-        syncedSum: 0,
-        pendingSum: 0,
-        byMobilizationMethod: {},
-        byIntakeMethod: {},
-        byMobilizer: {},
-        dailyMilestoneProgress: 0,
-        dailyMilestoneGoal: 50,
-        milestonesAchievedToday: 0,
-      },
-      'Clarke International University (CIU)': {
-        university: 'Clarke International University (CIU)',
-        acronym: 'CIU',
-        totalSum: 0,
-        todaySum: 0,
-        syncedSum: 0,
-        pendingSum: 0,
-        byMobilizationMethod: {},
-        byIntakeMethod: {},
-        byMobilizer: {},
-        dailyMilestoneProgress: 0,
-        dailyMilestoneGoal: 50,
-        milestonesAchievedToday: 0,
-      },
-      'King Caesar University (KCU)': {
-        university: 'King Caesar University (KCU)',
-        acronym: 'KCU',
         totalSum: 0,
         todaySum: 0,
         syncedSum: 0,

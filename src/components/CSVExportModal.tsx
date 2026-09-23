@@ -47,10 +47,6 @@ const AVAILABLE_COLUMNS: ColumnOption[] = [
 
 const SLUG_MAP: Record<string, string> = {
   'Kampala International University (KIU)': 'kiu',
-  'Cavendish University Uganda': 'cavendish',
-  'International University of East Africa (IUEA)': 'iuea',
-  'Clarke International University (CIU)': 'ciu',
-  'King Caesar University (KCU)': 'kcu',
 };
 
 export const CSVExportModal: React.FC<CSVExportModalProps> = ({
@@ -512,7 +508,7 @@ export const CSVExportModal: React.FC<CSVExportModalProps> = ({
           </div>
 
           {/* Section 3: Live Preview & Monospace Terminal */}
-          <div className="bg-slate-950 rounded-2xl p-4 border border-red-500/20">
+          <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs">
               <span className="font-mono text-slate-400">CSV Structure Sample (First 5 Rows)</span>
               <span className="text-[11px] font-mono text-slate-500">
@@ -527,13 +523,13 @@ export const CSVExportModal: React.FC<CSVExportModalProps> = ({
             </pre>
           </div>
 
-          {/* Section 4: Actions (Styled after the Japanese tablet button in image.png) */}
+          {/* Section 4: Actions */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleCopyClipboard}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-red-500/30 transition cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-700 transition cursor-pointer"
               >
                 {copiedToClipboard ? (
                   <>
@@ -542,7 +538,7 @@ export const CSVExportModal: React.FC<CSVExportModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3.5 h-3.5 text-red-400" />
+                    <Copy className="w-3.5 h-3.5 text-blue-400" />
                     <span>Copy Raw CSV</span>
                   </>
                 )}
@@ -555,7 +551,7 @@ export const CSVExportModal: React.FC<CSVExportModalProps> = ({
                 type="button"
                 onClick={handleDownload}
                 disabled={isDownloading || previewData.total === 0}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white text-xs sm:text-sm font-black uppercase tracking-wider shadow-[0_0_30px_rgba(220,38,38,0.5)] transition active:scale-[0.99] cursor-pointer disabled:opacity-50 border border-red-400/40"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition active:scale-[0.99] cursor-pointer disabled:opacity-50 shadow-sm"
               >
                 <Download className="w-4 h-4 text-white" />
                 <span>

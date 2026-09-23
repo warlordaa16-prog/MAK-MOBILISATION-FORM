@@ -17,10 +17,6 @@ import { normalizeUgandaPhone } from './server/phone';
 
 const ALLOWED_UNIVERSITIES = [
   'Kampala International University (KIU)',
-  'Cavendish University Uganda',
-  'International University of East Africa (IUEA)',
-  'Clarke International University (CIU)',
-  'King Caesar University (KCU)',
 ];
 
 export interface AuthenticatedAdmin {
@@ -175,20 +171,8 @@ async function startServer() {
         return;
       }
 
-      // Validate University is one of the fixed universities
-      let matchedUniversity = ALLOWED_UNIVERSITIES.find((u) => u === university);
-      if (!matchedUniversity) {
-        // Check for old name or partial match
-        if (university?.includes('King Caesar') || university?.includes('KCU') || university?.includes('Kumi')) {
-          matchedUniversity = 'King Caesar University (KCU)';
-        } else {
-          res.status(400).json({
-            success: false,
-            message: `Invalid university. Must be one of: ${ALLOWED_UNIVERSITIES.join(', ')}`,
-          });
-          return;
-        }
-      }
+      // Validate University is Kampala International University (KIU)
+      let matchedUniversity = ALLOWED_UNIVERSITIES.find((u) => u === university) || 'Kampala International University (KIU)';
 
       // Validate and Normalize Phone Number
       const phoneResult = normalizeUgandaPhone(telephone);
@@ -297,10 +281,7 @@ async function startServer() {
         const queueId = item.queueId || item.id;
         const phoneResult = normalizeUgandaPhone(item.telephone);
         if (phoneResult.isValid && item.fullName && item.university) {
-          let u = ALLOWED_UNIVERSITIES.find((uName) => uName === item.university) || item.university;
-          if (u.includes('KCU') || u.includes('Kumi') || u.includes('King Caesar')) {
-            u = 'King Caesar University (KCU)';
-          }
+          let u = 'Kampala International University (KIU)';
 
           // Check if already registered
           const existing = LocalStorageManager.findByPhone(phoneResult.normalized);
@@ -408,15 +389,8 @@ async function startServer() {
           continue;
         }
 
-        // Match university
-        let matchedUniversity = ALLOWED_UNIVERSITIES.find((u) => u === rawUniversity);
-        if (!matchedUniversity) {
-          if (rawUniversity?.includes('King Caesar') || rawUniversity?.includes('KCU') || rawUniversity?.includes('Kumi')) {
-            matchedUniversity = 'King Caesar University (KCU)';
-          } else {
-            matchedUniversity = ALLOWED_UNIVERSITIES[0];
-          }
-        }
+        // Match university (Always KIU)
+        const matchedUniversity = 'Kampala International University (KIU)';
 
         // Check duplicate
         const existing = LocalStorageManager.findByPhone(phoneResult.normalized);
@@ -860,7 +834,10 @@ async function startServer() {
   // Vite middleware for dev or static files for prod
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

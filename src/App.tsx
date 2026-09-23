@@ -16,7 +16,10 @@ export default function App() {
   const { isOnline } = useFullConnectivity();
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityName | null>(() => {
     const saved = OfflineQueueService.getSelectedUniversity();
-    return (saved as UniversityName) || null;
+    if (saved === 'Kampala International University (KIU)') {
+      return saved;
+    }
+    return 'Kampala International University (KIU)';
   });
 
   const [sessionCount, setSessionCount] = useState<number>(() => {
@@ -106,7 +109,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col relative selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#24173d] text-slate-100 font-sans flex flex-col relative selection:bg-[#ff4f46] selection:text-white bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,53,178,0.35),rgba(36,23,61,0))]">
       {/* App Header */}
       <Header
         selectedUniversity={selectedUniversity}
@@ -168,11 +171,11 @@ export default function App() {
         )}
       </main>
 
-      {/* Clean Original Footer */}
-      <footer className="w-full border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-500">
+      {/* Modern Frosted Dark Purple Footer */}
+      <footer className="w-full border-t border-purple-900/40 bg-[#1a112e]/90 backdrop-blur-md py-5 text-center text-xs text-purple-200/70">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="font-medium">University Mobilization System • 5 Partner Campuses</span>
-          <span>Central Real-Time Google Sheets Integration</span>
+          <span className="font-medium text-purple-100">Kampala International University (KIU) Mobilization System</span>
+          <span className="text-purple-300/80">Central Real-Time Google Sheets Integration</span>
         </div>
       </footer>
 
