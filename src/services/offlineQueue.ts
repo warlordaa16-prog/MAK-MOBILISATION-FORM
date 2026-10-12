@@ -138,8 +138,9 @@ export class OfflineQueueService {
       timestamp: now.toISOString(),
       syncedToGoogleSheets: false,
       queuedOffline: true,
-      mobilizerName: payload.mobilizerName || 'Field Mobilizer',
-      mobilizationMethod: payload.mobilizationMethod || 'Campus Gate / Main Entrance',
+      mobilizerName: payload.mobilizerName || 'Airin',
+      mobilizationMethod: payload.mobilizationMethod || 'Call centre',
+      needsTransport: payload.needsTransport || 'yes',
       intakeMethod: payload.intakeMethod || 'rapid-single',
       notes: payload.notes,
     };
@@ -321,8 +322,31 @@ export class OfflineQueueService {
     URL.revokeObjectURL(url);
   }
 
-  // Universal Data Safe-Keep: Download all stored data (both offline queue and cached records)
-  static exportAllKeptData(format: 'csv' | 'json' = 'csv') {
+  // Universal Data Safe-Keep: Download all convened mobilization data (all records across all 200 users)
+  static async exportAllKeptData(format: 'xlsx' | 'csv' | 'json' = 'xlsx') {
+    // If online, fetch the full centrally convened dataset from server
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      try {
+        const response = await fetch(`/api/entries/export-kept?format=${format}`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const ext = format === 'xlsx' ? 'xlsx' : (format === 'csv' ? 'csv' : 'json');
+          link.download = `GIC 2026 Mobilisation Template - KIU.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          return;
+        }
+      } catch (err) {
+        console.warn('Network export failed, falling back to local storage cache', err);
+      }
+    }
+
+    // Offline fallback: export local queue + recents
     const queue = this.getQueue().map((q) => q.temporaryEntry);
     const recents = this.getRecentEntries();
     
@@ -337,12 +361,6 @@ export class OfflineQueueService {
       }
     });
 
-    if (combined.length === 0) {
-      // If client cache is empty, trigger server download
-      window.location.href = `/api/entries/export-kept?format=${format}`;
-      return;
-    }
-
     if (format === 'json') {
       const blob = new Blob([JSON.stringify({ count: combined.length, entries: combined }, null, 2)], {
         type: 'application/json',
@@ -350,7 +368,7 @@ export class OfflineQueueService {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `kept_mobilization_data_${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `GIC 2026 Mobilisation Template - KIU.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -358,27 +376,25 @@ export class OfflineQueueService {
       return;
     }
 
-    // CSV format
-    const headers = ['ID', 'Full Name', 'Telephone', 'University', 'Date', 'Time', 'Mobilizer', 'Outreach Method', 'Intake Channel', 'Sync Status'];
+    // Exact GIC 2026 Mobilisation Template CSV matching the user's Excel layout
+    const row1 = `"GIC 2026 MOBILISATION TEMPLATE",,,,`;
+    const row2 = `"NAME OF CAMPUS: KAMPALA INTERNATIONAL UNIVERSITY (KIU)",,,,`;
+    const row3 = `"NAME OF MOBILISER","STRATEGY USED","STUDENTS MOBILISED","PHONE NUMBER","NEEDS TRANSPORT"`;
+    
     const rows = combined.map((e) => [
-      `"${e.id}"`,
+      `"${(e.mobilizerName || 'Airin').replace(/"/g, '""')}"`,
+      `"${(e.mobilizationMethod || 'Call centre').replace(/"/g, '""')}"`,
       `"${(e.fullName || '').replace(/"/g, '""')}"`,
       `"${e.telephone}"`,
-      `"${(e.university || '').replace(/"/g, '""')}"`,
-      `"${e.date}"`,
-      `"${e.time}"`,
-      `"${(e.mobilizerName || 'Field Mobilizer').replace(/"/g, '""')}"`,
-      `"${(e.mobilizationMethod || 'Direct Outreach').replace(/"/g, '""')}"`,
-      `"${(e.intakeMethod || 'rapid-single').replace(/"/g, '""')}"`,
-      `"${e.queuedOffline ? 'KEPT OFFLINE' : e.syncedToGoogleSheets ? 'SYNCED' : 'PENDING'}"`,
+      `"${(e.needsTransport || 'yes').replace(/"/g, '""')}"`,
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const csvContent = '\uFEFF' + [row1, row2, row3, ...rows.map((r) => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `kept_mobilization_data_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `GIC 2026 Mobilisation Template - KIU.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

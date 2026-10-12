@@ -59,12 +59,26 @@ export const RecentEntriesList: React.FC<RecentEntriesListProps> = ({ entries })
                         {item.fullName}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-purple-300/80 font-mono mt-0.5">
+                    <div className="flex items-center gap-2 text-xs text-purple-300/80 font-mono mt-0.5 flex-wrap">
                       <span>{item.telephone}</span>
-                      <span>•</span>
-                      <span className="font-sans text-[11px] font-medium text-purple-200">
-                        {acronym}
-                      </span>
+                      {item.mobilizationMethod && (
+                        <>
+                          <span>•</span>
+                          <span className="font-sans text-[11px] font-medium text-purple-200">
+                            {item.mobilizationMethod}
+                          </span>
+                        </>
+                      )}
+                      {item.needsTransport && (
+                        <>
+                          <span>•</span>
+                          <span className={`font-sans text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            item.needsTransport === 'yes' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                          }`}>
+                            Transport: {item.needsTransport === 'yes' ? 'Yes' : 'No'}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

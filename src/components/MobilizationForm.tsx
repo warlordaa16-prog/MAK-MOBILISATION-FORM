@@ -14,7 +14,9 @@ import {
   VolumeX,
   Sparkles,
   CloudUpload,
-  ShieldCheck
+  ShieldCheck,
+  Compass,
+  Car
 } from 'lucide-react';
 import { UniversityName, MobilizationEntry } from '../types';
 import { validateAndNormalizeUgandanPhone } from '../utils/phone';
@@ -35,6 +37,15 @@ interface DuplicateWarningData {
   existingDate?: string;
   telephone: string;
 }
+
+const STRATEGY_PRESETS = [
+  'Call centre',
+  'Evangelism',
+  'One-on-One',
+  'Hostel Outreach',
+  'Class Visitation',
+  'Campus Gate',
+];
 
 const COMMON_PREFIXES = [
   { prefix: '070', label: '070 (Airtel)', carrier: 'Airtel' },
@@ -60,8 +71,35 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => OfflineQueueService.isSoundEnabled());
-  const [mobilizationMethod] = useState<string>('Campus Gate / Main Entrance');
-  const [mobilizerName] = useState<string>('Field Mobilizer');
+  const [mobilizerName, setMobilizerName] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gic_mobilizer_name') || 'Airin';
+    } catch {
+      return 'Airin';
+    }
+  });
+  const [mobilizationMethod, setMobilizationMethod] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gic_strategy_used') || 'Call centre';
+    } catch {
+      return 'Call centre';
+    }
+  });
+  const [needsTransport, setNeedsTransport] = useState<'yes' | 'no'>('yes');
+
+  const handleMobilizerNameChange = (val: string) => {
+    setMobilizerName(val);
+    try {
+      localStorage.setItem('gic_mobilizer_name', val);
+    } catch {}
+  };
+
+  const handleStrategyChange = (val: string) => {
+    setMobilizationMethod(val);
+    try {
+      localStorage.setItem('gic_strategy_used', val);
+    } catch {}
+  };
 
   const fullNameInputRef = useRef<HTMLInputElement>(null);
   const telephoneInputRef = useRef<HTMLInputElement>(null);
@@ -202,8 +240,9 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
       telephone: phoneValidation.normalized,
       university: selectedUniversity,
       allowDuplicate,
-      mobilizerName: mobilizerName.trim() || 'Field Mobilizer 1',
-      mobilizationMethod: mobilizationMethod,
+      mobilizerName: mobilizerName.trim() || 'Airin',
+      mobilizationMethod: mobilizationMethod || 'Call centre',
+      needsTransport: needsTransport,
       intakeMethod: 'rapid-single' as const,
     };
 
@@ -414,14 +453,58 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Field 1: Full Name */}
+          {/* Mobilisation Setup Row: Mobiliser Name & Strategy (Persisted in browser) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[#1e1338]/90 rounded-2xl border border-purple-400/25">
+            <div>
+              <label
+                htmlFor="mobiliser-name-input"
+                className="block text-[11px] font-black text-purple-200 uppercase tracking-wider mb-1"
+              >
+                NAME OF MOBILISER <span className="text-[#ff4d46]">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="mobiliser-name-input"
+                  type="text"
+                  value={mobilizerName}
+                  onChange={(e) => handleMobilizerNameChange(e.target.value)}
+                  placeholder="e.g. Airin"
+                  className="w-full px-3 py-2 bg-black/40 border border-purple-400/30 rounded-xl text-white text-xs font-semibold placeholder-purple-300/40 focus:outline-hidden focus:ring-1 focus:ring-[#ff4d46]"
+                  title="Your name as mobilizer - saved on your device"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="strategy-select"
+                className="block text-[11px] font-black text-purple-200 uppercase tracking-wider mb-1"
+              >
+                STRATEGY USED <span className="text-[#ff4d46]">*</span>
+              </label>
+              <select
+                id="strategy-select"
+                value={mobilizationMethod}
+                onChange={(e) => handleStrategyChange(e.target.value)}
+                className="w-full px-3 py-2 bg-black/40 border border-purple-400/30 rounded-xl text-white text-xs font-semibold focus:outline-hidden focus:ring-1 focus:ring-[#ff4d46] cursor-pointer"
+              >
+                {STRATEGY_PRESETS.map((s) => (
+                  <option key={s} value={s} className="bg-[#1f1338] text-white">
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Field 1: Students Mobilised (Student Full Name) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label
                 htmlFor="full-name-input"
                 className="block text-xs font-bold text-purple-200 uppercase tracking-wider"
               >
-                FULL NAME <span className="text-[#ff4d46]">*</span>
+                STUDENTS MOBILISED <span className="text-[#ff4d46]">*</span>
               </label>
               <span className="text-[10px] text-purple-300/60 font-medium">Press Enter for Phone</span>
             </div>
@@ -440,7 +523,7 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
                   setServerError(null);
                 }}
                 onKeyDown={handleNameKeyDown}
-                placeholder="e.g. Sarah Nalubega"
+                placeholder="e.g. Cecilia, Ajok, Julia"
                 required
                 autoComplete="off"
                 autoCapitalize="words"
@@ -456,7 +539,7 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
                 htmlFor="telephone-input"
                 className="block text-xs font-bold text-purple-200 uppercase tracking-wider"
               >
-                TELEPHONE NUMBER <span className="text-[#ff4d46]">*</span>
+                PHONE NUMBER <span className="text-[#ff4d46]">*</span>
               </label>
               {carrierTag && (
                 <span className="text-[11px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-lg border border-emerald-400/30 animate-fade-in">
@@ -504,6 +587,46 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
             </div>
           </div>
 
+          {/* Field 3: Needs Transport (Defaults to 'yes' as in Excel template) */}
+          <div className="p-3 bg-[#1e1338]/80 rounded-2xl border border-purple-400/20 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Car className="w-4 h-4 text-[#ff7575]" />
+              <div>
+                <span className="block text-xs font-bold text-purple-100 uppercase tracking-wider">
+                  NEEDS TRANSPORT
+                </span>
+                <span className="text-[10px] text-purple-300/60">
+                  Required in GIC 2026 Mobilisation Template
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10">
+              <button
+                type="button"
+                onClick={() => setNeedsTransport('yes')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  needsTransport === 'yes'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm'
+                    : 'text-purple-300 hover:text-white'
+                }`}
+              >
+                ✓ Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => setNeedsTransport('no')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  needsTransport === 'no'
+                    ? 'bg-[#ff4d46] text-white shadow-sm'
+                    : 'text-purple-300 hover:text-white'
+                }`}
+              >
+                No
+              </button>
+            </div>
+          </div>
+
           {/* Validation Error Alert */}
           {validationError && (
             <div className="p-3.5 bg-rose-500/20 border border-rose-500/40 rounded-2xl text-rose-200 text-xs sm:text-sm font-medium flex items-center gap-2">
@@ -534,6 +657,9 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
                       fullName: fullName.trim(),
                       telephone: telephone.trim(),
                       university: selectedUniversity,
+                      mobilizerName: mobilizerName.trim() || 'Airin',
+                      mobilizationMethod: mobilizationMethod || 'Call centre',
+                      needsTransport: needsTransport,
                     });
                     handleSaveSuccess(queued.temporaryEntry, true);
                   }}

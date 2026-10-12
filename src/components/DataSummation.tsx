@@ -142,16 +142,25 @@ export const DataSummation: React.FC<DataSummationProps> = ({
           </div>
         </div>
 
-        {/* Action Controls: Refresh and Keep Data Export */}
+        {/* Action Controls: Refresh and Convened GIC 2026 Excel/CSV Export */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            onClick={() => OfflineQueueService.exportAllKeptData('csv')}
-            className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer backdrop-blur-md"
-            title="Download all stored data kept safely (CSV)"
+            onClick={() => OfflineQueueService.exportAllKeptData('xlsx')}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#ff4d46] to-[#e63548] hover:from-[#ff6157] hover:to-[#f24959] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-rose-950/40 border border-rose-400/30"
+            title="Download official GIC 2026 Mobilisation Excel (.xlsx) spreadsheet matching template"
           >
-            <Download className="w-3.5 h-3.5 text-purple-200" />
-            <span>Export Kept Data (CSV)</span>
+            <Download className="w-3.5 h-3.5 text-white" />
+            <span>Export GIC 2026 Excel (.xlsx)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => OfflineQueueService.exportAllKeptData('csv')}
+            className="px-2.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-purple-200 hover:text-white text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+            title="Export as GIC 2026 CSV"
+          >
+            <span>CSV</span>
           </button>
 
           <button

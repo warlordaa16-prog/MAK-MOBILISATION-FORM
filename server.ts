@@ -4,6 +4,7 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import ExcelJS from 'exceljs';
 import { GoogleSheetsService } from './server/googleSheets';
 import {
   LocalStorageManager,
@@ -18,6 +19,137 @@ import { normalizeUgandaPhone } from './server/phone';
 const ALLOWED_UNIVERSITIES = [
   'Kampala International University (KIU)',
 ];
+
+/**
+ * Generates the official GIC 2026 Mobilisation Excel (.xlsx) file matching the exact template layout:
+ * - Row 1: Merged A1:E1 with light blue background (#A4C2F4) "GIC 2026 MOBILISATION TEMPLATE"
+ * - Row 2: Merged A2:E2 with light blue background (#A4C2F4) "NAME OF CAMPUS"
+ * - Row 3: Black background with white bold text: NAME OF MOBILISER, STRATEGY USED, STUDENTS MOBILISED, PHONE NUMBER, NEEDS TRANSPORT
+ * - Row 4+: Data rows
+ */
+async function generateGic2026ExcelBuffer(entries: any[], campusName = 'KAMPALA INTERNATIONAL UNIVERSITY (KIU)'): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'GIC 2026 Mobilisation';
+  workbook.lastModifiedBy = 'GIC 2026 Mobilisation';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+
+  const worksheet = workbook.addWorksheet('Sheet1', {
+    views: [{ showGridLines: true }],
+  });
+
+  // Row 1: GIC 2026 MOBILISATION TEMPLATE (Merged A1:E1)
+  worksheet.mergeCells('A1:E1');
+  const titleCell = worksheet.getCell('A1');
+  titleCell.value = 'GIC 2026 MOBILISATION TEMPLATE';
+  titleCell.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FF000000' } };
+  titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+  titleCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFA4C2F4' }, // Periwinkle light blue from template
+  };
+
+  // Row 2: NAME OF CAMPUS (Merged A2:E2)
+  worksheet.mergeCells('A2:E2');
+  const campusCell = worksheet.getCell('A2');
+  campusCell.value = campusName ? `NAME OF CAMPUS: ${campusName.toUpperCase()}` : 'NAME OF CAMPUS';
+  campusCell.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF000000' } };
+  campusCell.alignment = { vertical: 'middle', horizontal: 'center' };
+  campusCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFA4C2F4' },
+  };
+
+  worksheet.getRow(1).height = 34;
+  worksheet.getRow(2).height = 28;
+  worksheet.getRow(3).height = 24;
+
+  // Row 3: Table Headers (Black background, white bold text)
+  const headers = [
+    'NAME OF MOBILISER',
+    'STRATEGY USED',
+    'STUDENTS MOBILISED',
+    'PHONE NUMBER',
+    'NEEDS TRANSPORT',
+  ];
+
+  const headerRow = worksheet.getRow(3);
+  headers.forEach((h, idx) => {
+    const cell = headerRow.getCell(idx + 1);
+    cell.value = h;
+    cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF000000' }, // Solid black
+    };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF222222' } },
+      bottom: { style: 'thin', color: { argb: 'FF222222' } },
+      left: { style: 'thin', color: { argb: 'FF222222' } },
+      right: { style: 'thin', color: { argb: 'FF222222' } },
+    };
+  });
+
+  worksheet.getColumn(1).width = 24; // NAME OF MOBILISER
+  worksheet.getColumn(2).width = 22; // STRATEGY USED
+  worksheet.getColumn(3).width = 26; // STUDENTS MOBILISED
+  worksheet.getColumn(4).width = 20; // PHONE NUMBER
+  worksheet.getColumn(5).width = 18; // NEEDS TRANSPORT
+
+  entries.forEach((e, i) => {
+    const rowIndex = i + 4;
+    const row = worksheet.getRow(rowIndex);
+    row.height = 20;
+
+    const mobiliser = (e.mobilizerName || 'Airin').trim();
+    const strategy = (e.mobilizationMethod || 'Call centre').trim();
+    const student = (e.fullName || '').trim();
+    const phone = (e.telephone || '').trim();
+    const transport = (e.needsTransport || 'yes').trim().toLowerCase();
+
+    row.getCell(1).value = mobiliser;
+    row.getCell(2).value = strategy;
+    row.getCell(3).value = student;
+    row.getCell(4).value = phone;
+    row.getCell(5).value = transport;
+
+    for (let c = 1; c <= 5; c++) {
+      const cell = row.getCell(c);
+      cell.font = { name: 'Arial', size: 10, color: { argb: 'FF000000' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+        left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+        right: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+      };
+    }
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+function generateGic2026Csv(entries: any[], campusName = 'KAMPALA INTERNATIONAL UNIVERSITY (KIU)'): string {
+  const row1 = `"GIC 2026 MOBILISATION TEMPLATE",,,,`;
+  const row2 = `"NAME OF CAMPUS: ${campusName.toUpperCase()}",,,,`;
+  const row3 = `"NAME OF MOBILISER","STRATEGY USED","STUDENTS MOBILISED","PHONE NUMBER","NEEDS TRANSPORT"`;
+
+  const rows = entries.map((e) => {
+    const mobiliser = `"${(e.mobilizerName || 'Airin').replace(/"/g, '""')}"`;
+    const strategy = `"${(e.mobilizationMethod || 'Call centre').replace(/"/g, '""')}"`;
+    const student = `"${(e.fullName || '').replace(/"/g, '""')}"`;
+    const phone = `"${(e.telephone || '').replace(/"/g, '""')}"`;
+    const transport = `"${(e.needsTransport || 'yes').replace(/"/g, '""')}"`;
+    return [mobiliser, strategy, student, phone, transport].join(',');
+  });
+
+  return '\uFEFF' + [row1, row2, row3, ...rows].join('\r\n');
+}
 
 export interface AuthenticatedAdmin {
   username: string;
@@ -158,6 +290,7 @@ async function startServer() {
         allowDuplicate,
         mobilizerName,
         mobilizationMethod,
+        needsTransport,
         intakeMethod,
         notes,
       } = req.body;
@@ -227,8 +360,9 @@ async function startServer() {
         fullName: fullName.trim(),
         telephone: normalizedPhone,
         university: matchedUniversity,
-        mobilizerName: mobilizerName || 'Field Mobilizer',
-        mobilizationMethod: mobilizationMethod || 'Campus Gate / Main Entrance',
+        mobilizerName: mobilizerName || 'Airin',
+        mobilizationMethod: mobilizationMethod || 'Call centre',
+        needsTransport: (needsTransport || 'yes').toLowerCase(),
         intakeMethod: intakeMethod || 'rapid-single',
         notes,
       });
@@ -464,42 +598,39 @@ async function startServer() {
     }
   });
 
-  // 4.2 Data Safe-Keep Export Endpoint (CSV or JSON)
-  app.get('/api/entries/export-kept', (req: Request, res: Response) => {
+  // 4.2 Official GIC 2026 Mobilisation Export Endpoint (XLSX, CSV, or JSON)
+  app.get('/api/entries/export-kept', async (req: Request, res: Response) => {
     try {
-      const format = req.query.format === 'csv' ? 'csv' : 'json';
+      const format = (req.query.format ? String(req.query.format).toLowerCase() : 'xlsx');
       const university = req.query.university ? String(req.query.university) : null;
       let entries = LocalStorageManager.getRawEntries();
       if (university && university !== 'all') {
         entries = entries.filter((e) => e.university === university);
       }
 
+      const campusTitle = university && university !== 'all' ? university : 'KAMPALA INTERNATIONAL UNIVERSITY (KIU)';
+
+      if (format === 'xlsx' || format === 'excel') {
+        const buffer = await generateGic2026ExcelBuffer(entries, campusTitle);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="GIC 2026 Mobilisation Template - KIU.xlsx"`);
+        res.send(buffer);
+        return;
+      }
+
       if (format === 'csv') {
-        const headers = ['ID', 'Full Name', 'Telephone', 'University', 'Date', 'Time', 'Mobilizer', 'Method', 'Intake Channel', 'Sheets Synced', 'Timestamp'];
-        const rows = entries.map((e) => [
-          `"${e.id}"`,
-          `"${(e.fullName || '').replace(/"/g, '""')}"`,
-          `"${e.telephone}"`,
-          `"${(e.university || '').replace(/"/g, '""')}"`,
-          `"${e.date}"`,
-          `"${e.time}"`,
-          `"${((e as any).mobilizerName || 'Field Mobilizer').replace(/"/g, '""')}"`,
-          `"${((e as any).mobilizationMethod || 'Direct Outreach').replace(/"/g, '""')}"`,
-          `"${((e as any).intakeMethod || 'rapid-single').replace(/"/g, '""')}"`,
-          `"${e.syncedToGoogleSheets ? 'YES' : 'PENDING'}"`,
-          `"${e.timestamp}"`,
-        ]);
-        const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="kept_mobilization_records_${new Date().toISOString().slice(0, 10)}.csv"`);
+        const csvContent = generateGic2026Csv(entries, campusTitle);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="GIC 2026 Mobilisation Template - KIU.csv"`);
         res.send(csvContent);
         return;
       }
 
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="kept_mobilization_records_${new Date().toISOString().slice(0, 10)}.json"`);
+      res.setHeader('Content-Disposition', `attachment; filename="GIC_2026_Mobilisation_Records_${new Date().toISOString().slice(0, 10)}.json"`);
       res.json({ success: true, count: entries.length, entries });
     } catch (err: any) {
+      console.error('Export error:', err);
       res.status(500).json({ success: false, message: 'Failed to export kept data', error: err?.message });
     }
   });
@@ -628,75 +759,56 @@ async function startServer() {
     res.json({ success: true, stats, adminRole: admin.role });
   });
 
-  // 8. Admin Export CSV (STRICT CSV EXPORT & ISOLATION)
-  app.get('/api/admin/export', requireAdmin, (req, res) => {
-    const admin = (req as any).adminUser as AuthenticatedAdmin;
-    const date = req.query.date ? String(req.query.date) : undefined;
-    const search = req.query.search ? String(req.query.search) : undefined;
-    const synced = req.query.synced as ('all' | 'yes' | 'no' | undefined);
-    const requestedCols = req.query.columns ? String(req.query.columns).split(',').map((c) => c.trim()) : null;
+  // 8. Admin Export (OFFICIAL GIC 2026 EXCEL & CSV TEMPLATE)
+  app.get('/api/admin/export', requireAdmin, async (req, res) => {
+    try {
+      const admin = (req as any).adminUser as AuthenticatedAdmin;
+      const date = req.query.date ? String(req.query.date) : undefined;
+      const search = req.query.search ? String(req.query.search) : undefined;
+      const synced = req.query.synced as ('all' | 'yes' | 'no' | undefined);
+      const format = req.query.format ? String(req.query.format).toLowerCase() : 'xlsx';
 
-    let targetUniversity: string | undefined;
-    let strictUniversity: string | null = null;
+      let targetUniversity: string | undefined;
+      let strictUniversity: string | null = null;
 
-    if (admin.role === 'UNIVERSITY_ADMIN') {
-      // Strict backend isolation: Force to administrator's university only
-      strictUniversity = admin.university;
-      targetUniversity = admin.university || undefined;
-    } else {
-      targetUniversity = req.query.university && req.query.university !== 'all'
-        ? String(req.query.university)
-        : undefined;
+      if (admin.role === 'UNIVERSITY_ADMIN') {
+        strictUniversity = admin.university;
+        targetUniversity = admin.university || undefined;
+      } else {
+        targetUniversity = req.query.university && req.query.university !== 'all'
+          ? String(req.query.university)
+          : undefined;
+      }
+
+      const data = LocalStorageManager.getAllEntries({
+        university: targetUniversity,
+        strictUniversity,
+        date: date && date !== 'all' ? date : undefined,
+        search: search || undefined,
+        synced: synced || 'all',
+        limit: 100000,
+      });
+
+      const campusTitle = targetUniversity || 'KAMPALA INTERNATIONAL UNIVERSITY (KIU)';
+
+      if (format === 'xlsx' || format === 'excel') {
+        const buffer = await generateGic2026ExcelBuffer(data.entries, campusTitle);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="GIC 2026 Mobilisation Template - KIU.xlsx"`);
+        res.setHeader('X-Total-Count', String(data.total));
+        res.send(buffer);
+        return;
+      }
+
+      const csvContent = generateGic2026Csv(data.entries, campusTitle);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="GIC 2026 Mobilisation Template - KIU.csv"`);
+      res.setHeader('X-Total-Count', String(data.total));
+      res.send(csvContent);
+    } catch (err: any) {
+      console.error('Admin export error:', err);
+      res.status(500).json({ success: false, message: 'Export failed', error: err?.message });
     }
-
-    const data = LocalStorageManager.getAllEntries({
-      university: targetUniversity,
-      strictUniversity,
-      date: date && date !== 'all' ? date : undefined,
-      search: search || undefined,
-      synced: synced || 'all',
-      limit: 100000,
-    });
-
-    // Column definitions mapping
-    const availableColumns: Record<string, { label: string; extract: (e: any) => string }> = {
-      id: { label: 'ID', extract: (e) => `"${e.id}"` },
-      fullName: { label: 'Full Name', extract: (e) => `"${(e.fullName || '').replace(/"/g, '""')}"` },
-      telephone: { label: 'Telephone Number', extract: (e) => `"${e.telephone}"` },
-      university: { label: 'University', extract: (e) => `"${(e.university || '').replace(/"/g, '""')}"` },
-      date: { label: 'Date', extract: (e) => `"${e.date}"` },
-      time: { label: 'Time', extract: (e) => `"${e.time}"` },
-      timestamp: { label: 'Timestamp (ISO/EAT)', extract: (e) => `"${e.timestamp}"` },
-      syncedToGoogleSheets: { label: 'Google Sheets Synced', extract: (e) => `"${e.syncedToGoogleSheets ? 'Yes' : 'No'}"` },
-      createdAt: { label: 'Created At (UTC)', extract: (e) => `"${e.createdAt || ''}"` },
-    };
-
-    const activeColKeys = requestedCols && requestedCols.length > 0
-      ? requestedCols.filter((k) => availableColumns[k])
-      : ['id', 'fullName', 'telephone', 'university', 'date', 'time', 'timestamp', 'syncedToGoogleSheets'];
-
-    const headers = activeColKeys.map((k) => availableColumns[k].label);
-    const rows = data.entries.map((entry) => {
-      return activeColKeys.map((k) => availableColumns[k].extract(entry)).join(',');
-    });
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-    const safeDate = new Date().toISOString().slice(0, 10);
-
-    // Precise filename requirements as requested:
-    // e.g. kiu_mobilization_2026-09-09.csv, cavendish_mobilization_2026-09-09.csv
-    let filename: string;
-    if (targetUniversity) {
-      const slug = UNIVERSITY_SLUG_MAP[targetUniversity] || 'university';
-      filename = `${slug}_mobilization_${safeDate}.csv`;
-    } else {
-      filename = `all_universities_mobilization_${safeDate}.csv`;
-    }
-
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-Total-Count', String(data.total));
-    res.send(csvContent);
   });
 
   // 9. Admin Settings & Google Sheets status

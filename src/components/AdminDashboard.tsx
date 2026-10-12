@@ -445,7 +445,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isExportingData, setIsExportingData] = useState(false);
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
 
-  const handleExportData = async (targetUniv?: string) => {
+  const handleExportData = async (targetUniv?: string, format: 'xlsx' | 'csv' = 'xlsx') => {
     setIsExportingData(true);
     try {
       const params = new URLSearchParams();
@@ -453,6 +453,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (univ && univ !== 'all') {
         params.set('university', univ);
       }
+      params.set('format', format);
       const res = await fetch(`/api/admin/export?${params.toString()}`, {
         headers: getAuthHeader(),
       });
@@ -463,17 +464,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const today = new Date().toISOString().slice(0, 10);
-      a.download = `kiu_mobilization_accumulated_${today}.csv`;
+      a.download = `GIC 2026 Mobilisation Template - KIU.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      setExportSuccessMessage('Mobilization entries downloaded successfully as CSV.');
+      setExportSuccessMessage(`Official GIC 2026 Mobilisation Template (${format.toUpperCase()}) downloaded successfully.`);
       setTimeout(() => setExportSuccessMessage(null), 4000);
     } catch (err) {
-      console.error('Direct CSV export error, falling back to local entries:', err);
-      OfflineQueueService.exportAllKeptData('csv');
+      console.error('Direct export error, falling back to local entries:', err);
+      OfflineQueueService.exportAllKeptData(format);
       setExportSuccessMessage('Downloaded accumulated mobilization entries.');
       setTimeout(() => setExportSuccessMessage(null), 4000);
     } finally {
@@ -1388,16 +1388,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <button
-                        id="system-admin-export-all-csv-btn"
-                        onClick={() => handleExportData('all')}
+                        id="system-admin-export-all-xlsx-btn"
+                        onClick={() => handleExportData('all', 'xlsx')}
                         disabled={isExportingData}
-                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-60"
-                        title="Download accumulated mobilization entries as a CSV file"
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-60"
+                        title="Download official GIC 2026 Mobilisation Excel (.xlsx) spreadsheet matching template"
                       >
                         <Download className={`w-3.5 h-3.5 ${isExportingData ? 'animate-bounce' : ''}`} />
-                        <span>{isExportingData ? 'Exporting Data...' : 'Export Data'}</span>
+                        <span>{isExportingData ? 'Exporting...' : 'Export Excel (.xlsx)'}</span>
+                      </button>
+                      <button
+                        id="system-admin-export-all-csv-btn"
+                        onClick={() => handleExportData('all', 'csv')}
+                        disabled={isExportingData}
+                        className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-60 border border-slate-200"
+                        title="Download GIC 2026 Mobilisation data as CSV"
+                      >
+                        <span>CSV</span>
                       </button>
                       <button
                         onClick={() => openExportModalForUniversity('all')}

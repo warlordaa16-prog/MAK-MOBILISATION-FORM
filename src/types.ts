@@ -57,8 +57,9 @@ export interface MobilizationEntry {
   timestamp: string; // ISO 8601
   syncedToGoogleSheets: boolean;
   queuedOffline?: boolean;
-  mobilizerName?: string; // Who entered the data (irrespective of mobilizer)
-  mobilizationMethod?: string; // e.g. Campus Gate, Door-to-Door, Lecture Hall
+  mobilizerName?: string; // Who entered the data (Name of Mobiliser)
+  mobilizationMethod?: string; // Strategy Used (e.g. Call centre, Evangelism)
+  needsTransport?: 'yes' | 'no' | string; // Needs transport (defaults to yes)
   intakeMethod?: IntakeChannel | string; // rapid-single, multi-part, batch-roster
   notes?: string;
 }
@@ -70,6 +71,7 @@ export interface SaveEntryPayload {
   allowDuplicate?: boolean;
   mobilizerName?: string;
   mobilizationMethod?: string;
+  needsTransport?: 'yes' | 'no' | string;
   intakeMethod?: IntakeChannel | string;
   notes?: string;
 }
