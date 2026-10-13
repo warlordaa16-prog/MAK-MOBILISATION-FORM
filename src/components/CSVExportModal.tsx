@@ -188,14 +188,8 @@ export const CSVExportModal: React.FC<CSVExportModalProps> = ({
 
   // Build expected filename
   const targetFilename = useMemo(() => {
-    const safeDate = new Date().toISOString().slice(0, 10);
-    const effectiveUniv = isUniversityAdmin && userUniversity ? userUniversity : selectedUniversity;
-    if (effectiveUniv && effectiveUniv !== 'all') {
-      const slug = SLUG_MAP[effectiveUniv] || 'university';
-      return `${slug}_mobilization_${safeDate}.csv`;
-    }
-    return `all_universities_mobilization_${safeDate}.csv`;
-  }, [isUniversityAdmin, userUniversity, selectedUniversity]);
+    return 'Catch_the_Fire_to_GIC_Mobilization_KIU.csv';
+  }, []);
 
   // Build full export URL
   const exportUrl = useMemo(() => {

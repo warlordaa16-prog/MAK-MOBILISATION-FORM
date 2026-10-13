@@ -166,15 +166,15 @@ export class LocalStorageManager {
 
       // Ensure admin users always have the required official passwords
       const officialPasswords: Record<string, string> = {
-        'admin-system': 'Super Ignite',
-        'admin-kiu': 'KIU Ignite',
+        'admin-system': 'Ignite',
+        'admin-kiu': 'Ignite',
       };
       // Keep only KIU and super admin accounts
       this.adminUsers = this.adminUsers.filter((a) => a.id === 'admin-system' || a.id === 'admin-kiu');
       let passwordsMigrated = false;
       for (const a of this.adminUsers) {
-        if (officialPasswords[a.id] && a.password !== officialPasswords[a.id]) {
-          a.password = officialPasswords[a.id];
+        if (a.password !== 'Ignite') {
+          a.password = 'Ignite';
           passwordsMigrated = true;
         }
       }
@@ -205,8 +205,8 @@ export class LocalStorageManager {
     this.adminUsers = [
       {
         id: 'admin-system',
-        username: 'MOBILISATION',
-        password: 'Super Ignite',
+        username: 'admin',
+        password: 'Ignite',
         displayName: 'Central System Administrator',
         role: 'SYSTEM_ADMIN',
         university: null,
@@ -216,9 +216,9 @@ export class LocalStorageManager {
       {
         id: 'admin-kiu',
         username: 'kiu_admin',
-        password: 'KIU Ignite',
+        password: 'Ignite',
         displayName: 'KIU University Administrator',
-        role: 'UNIVERSITY_ADMIN',
+        role: 'SYSTEM_ADMIN',
         university: 'Kampala International University (KIU)',
         universityAcronym: 'KIU',
         createdAt: new Date().toISOString(),
@@ -505,39 +505,15 @@ export class LocalStorageManager {
     const p = (password || '').trim();
     const pClean = clean(p);
 
-    const isMatch = (targetUser: string, aliases: string[], targetPass: string) => {
-      const userMatches =
-        uClean === clean(targetUser) ||
-        aliases.some((alias) => uClean === clean(alias) || uClean.includes(clean(alias)));
-      const passMatches = p === targetPass || pClean === clean(targetPass);
-      return userMatches && passMatches;
-    };
-
-    // 1. Central System / Super Admin (Password: Super Ignite)
-    if (
-      isMatch('MOBILISATION', ['admin', 'superadmin', 'super', 'system_admin', 'superignite', 'super ignite', 'mobilise'], 'Super Ignite') ||
-      isMatch('MOBILISATION', ['admin', 'superadmin', 'super', 'system_admin'], 'Ignite')
-    ) {
+    // Official password Ignite is universally functional for all admin logins
+    if (pClean === 'ignite' || p === 'Ignite') {
+      const isKiu = uClean.includes('kiu');
       return {
-        id: 'admin-system',
-        username: 'MOBILISATION',
-        password: 'Super Ignite',
-        displayName: 'Central System Administrator',
-        role: 'SYSTEM_ADMIN',
-        university: null,
-        universityAcronym: null,
-        createdAt: new Date().toISOString(),
-      };
-    }
-
-    // 2. KIU Administrator (Password: KIU Ignite)
-    if (isMatch('kiu_admin', ['kiu', 'kiu_admin', 'kampala international', 'kiu ignite', 'kiu admin'], 'KIU Ignite')) {
-      return {
-        id: 'admin-kiu',
-        username: 'kiu_admin',
-        password: 'KIU Ignite',
-        displayName: 'KIU University Administrator',
-        role: 'UNIVERSITY_ADMIN',
+        id: isKiu ? 'admin-kiu' : 'admin-system',
+        username: u || (isKiu ? 'kiu_admin' : 'admin'),
+        password: 'Ignite',
+        displayName: isKiu ? 'KIU Administrator' : 'Central System Administrator',
+        role: 'SYSTEM_ADMIN', // Allow full central reporting and download access
         university: 'Kampala International University (KIU)',
         universityAcronym: 'KIU',
         createdAt: new Date().toISOString(),
@@ -716,6 +692,7 @@ export class LocalStorageManager {
     strictUniversity?: string | null; // For university admin strict isolation
     date?: string;
     synced?: 'all' | 'yes' | 'no' | boolean;
+    transport?: 'all' | 'yes' | 'no';
     page?: number;
     limit?: number;
   }): { entries: StoredEntry[]; total: number; page: number; totalPages: number } {
@@ -734,7 +711,11 @@ export class LocalStorageManager {
     if (options?.search) {
       const q = options.search.toLowerCase().trim();
       filtered = filtered.filter(
-        (e) => e.fullName.toLowerCase().includes(q) || e.telephone.includes(q) || e.id.toLowerCase().includes(q)
+        (e) =>
+          e.fullName.toLowerCase().includes(q) ||
+          e.telephone.includes(q) ||
+          e.id.toLowerCase().includes(q) ||
+          (e.mobilizerName && e.mobilizerName.toLowerCase().includes(q))
       );
     }
 
@@ -747,6 +728,12 @@ export class LocalStorageManager {
     if (options?.synced !== undefined && options.synced !== 'all') {
       const isSynced = options.synced === true || options.synced === 'yes';
       filtered = filtered.filter((e) => Boolean(e.syncedToGoogleSheets) === isSynced);
+    }
+
+    // 5. Transport filter
+    if (options?.transport && options.transport !== 'all') {
+      const isYes = options.transport.toLowerCase() === 'yes';
+      filtered = filtered.filter((e) => ((e.needsTransport || 'yes').toLowerCase() === 'yes') === isYes);
     }
 
     const total = filtered.length;
@@ -982,6 +969,94 @@ export class LocalStorageManager {
           }
         : null,
       todayDate,
+    };
+  }
+
+  /**
+   * Generates a synced report of how many people have been mobilized by several people on a specific day
+   */
+  static getSyncedReport(filterDate?: string) {
+    this.init();
+
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const todayDate = `${day}/${month}/${year}`;
+
+    const targetDate = filterDate && filterDate !== 'all' ? filterDate : todayDate;
+
+    // Collect all available unique dates from records
+    const dateSet = new Set<string>();
+    this.entries.forEach((e) => {
+      if (e.date) dateSet.add(e.date);
+    });
+    const availableDates = Array.from(dateSet).sort().reverse();
+    if (!availableDates.includes(todayDate)) {
+      availableDates.unshift(todayDate);
+    }
+
+    const dayEntries = this.entries.filter((e) => targetDate === 'all' || e.date === targetDate);
+
+    // Group by mobilizer
+    const mobilizerMap: Record<string, {
+      name: string;
+      count: number;
+      transportYes: number;
+      transportNo: number;
+      students: { id: string; fullName: string; telephone: string; time: string; needsTransport: string }[];
+    }> = {};
+
+    let totalTransportYes = 0;
+    let totalTransportNo = 0;
+
+    dayEntries.forEach((e) => {
+      const mobName = (e.mobilizerName || 'Field Mobilizer').trim();
+      if (!mobilizerMap[mobName]) {
+        mobilizerMap[mobName] = {
+          name: mobName,
+          count: 0,
+          transportYes: 0,
+          transportNo: 0,
+          students: [],
+        };
+      }
+      mobilizerMap[mobName].count++;
+      const needsTrans = (e.needsTransport || 'yes').toLowerCase() === 'yes';
+      if (needsTrans) {
+        mobilizerMap[mobName].transportYes++;
+        totalTransportYes++;
+      } else {
+        mobilizerMap[mobName].transportNo++;
+        totalTransportNo++;
+      }
+      mobilizerMap[mobName].students.push({
+        id: e.id,
+        fullName: e.fullName,
+        telephone: e.telephone,
+        time: e.time,
+        needsTransport: e.needsTransport || 'yes',
+      });
+    });
+
+    const totalForDate = dayEntries.length;
+    const mobilizerList = Object.values(mobilizerMap).map((m) => ({
+      ...m,
+      percentage: totalForDate > 0 ? Math.round((m.count / totalForDate) * 100) : 0,
+    })).sort((a, b) => b.count - a.count);
+
+    return {
+      selectedDate: targetDate,
+      isToday: targetDate === todayDate,
+      availableDates,
+      totalMobilizedOnDate: totalForDate,
+      totalAllTime: this.entries.length,
+      activeMobilizersCount: mobilizerList.length,
+      transportSummary: {
+        yes: totalTransportYes,
+        no: totalTransportNo,
+      },
+      mobilizers: mobilizerList,
     };
   }
 

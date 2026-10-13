@@ -31,23 +31,15 @@ export const SessionCounter: React.FC<SessionCounterProps> = ({
           </div>
         </div>
 
-        <div className="pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10 flex items-center justify-between sm:justify-end gap-3">
-          <div className="text-right">
-            <span className="text-[10px] uppercase font-bold text-purple-300/70 block">
-              Active University
-            </span>
-            <span className="text-xs font-extrabold text-white truncate max-w-[200px] block">
-              {selectedUniversity}
-            </span>
-          </div>
-
+        <div className="pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10 flex items-center justify-end gap-2">
           {count > 0 && onResetCounter && (
             <button
               onClick={onResetCounter}
-              className="text-purple-300 hover:text-white p-1.5 hover:bg-white/10 rounded-xl transition cursor-pointer"
+              className="text-purple-200/80 hover:text-white px-3 py-1.5 hover:bg-white/10 rounded-xl transition cursor-pointer text-xs font-semibold flex items-center gap-1.5 border border-white/10"
               title="Reset session counter"
             >
               <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset</span>
             </button>
           )}
         </div>

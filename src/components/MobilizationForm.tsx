@@ -327,9 +327,9 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
     setCarrierTag(null);
 
     if (isOffline) {
-      setSuccessToast(`✓ Saved offline #${entry.id} (Queued for Google Sheets)`);
+      setSuccessToast(`✓ Saved offline #${entry.id}`);
     } else {
-      setSuccessToast(`✓ Entry #${entry.id} saved & synced.`);
+      setSuccessToast(`✓ Entry #${entry.id} saved.`);
     }
 
     // 1. Notify parent (increments session counter & adds to recent entries)
@@ -369,134 +369,49 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
 
   return (
     <div className="w-full max-w-xl mx-auto py-2 px-3 sm:px-0">
-      {/* Active University & Mode Status Bar */}
-      <div className="bg-[#2a1b4e]/70 backdrop-blur-xl rounded-2xl p-3 mb-3 border border-white/15 shadow-md space-y-2 text-white">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 overflow-hidden min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#ff4d46] to-[#e63548] flex items-center justify-center shrink-0 shadow-sm">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
-            <div className="truncate">
-              <span className="text-[10px] font-bold text-purple-300/70 uppercase tracking-wider block leading-none">
-                Active Campus
-              </span>
-              <span className="text-xs sm:text-sm font-extrabold text-white truncate block mt-0.5">
-                {selectedUniversity}
-              </span>
-            </div>
-          </div>
-          <button
-            id="change-univ-btn"
-            onClick={onSwitchUniversity}
-            className="shrink-0 text-xs font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 border border-white/15 backdrop-blur-md"
-          >
-            <RefreshCw className="w-3 h-3 text-purple-300" />
-            <span>Switch</span>
-          </button>
-        </div>
-
-        {/* Connectivity & Sound Controls Bar */}
-        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            {isOnline ? (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-lg font-semibold text-[11px]">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Online (Direct Sync)</span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#ff4d46]/20 text-[#ff8f8f] border border-[#ff4d46]/40 rounded-lg font-bold text-[11px]">
-                <WifiOff className="w-3 h-3 text-[#ff6666]" />
-                <span>Offline Mode (Auto-Queue)</span>
-              </div>
-            )}
-
-            <button
-              onClick={toggleManualOffline}
-              type="button"
-              className="text-[11px] font-semibold text-purple-300/80 hover:text-white underline cursor-pointer"
-              title="Toggle between online sync and manual offline queueing"
-            >
-              {isManualOffline ? 'Use Online' : 'Work Offline'}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={toggleSound}
-            className="p-1.5 text-purple-300 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer flex items-center gap-1 text-[11px] font-medium"
-            title={soundEnabled ? 'Chime sound enabled' : 'Chime sound muted'}
-          >
-            {soundEnabled ? (
-              <Volume2 className="w-3.5 h-3.5 text-[#ff6666]" />
-            ) : (
-              <VolumeX className="w-3.5 h-3.5 text-purple-400" />
-            )}
-            <span className="hidden sm:inline">{soundEnabled ? 'Chime ON' : 'Mute'}</span>
-          </button>
-        </div>
-      </div>
-
       {/* Main Fast Data Entry Card (Vibrant Violet Glass) */}
       <div className="bg-gradient-to-br from-[#352159]/90 via-[#271847]/95 to-[#1c1a4b]/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/15 p-5 sm:p-7 text-white">
-        <div className="mb-5 pb-4 border-b border-white/10 flex items-center justify-between">
+        <div className="mb-5 pb-4 border-b border-white/10 flex items-center justify-between gap-2">
           <div>
             <h2 className="text-base sm:text-lg font-black text-white uppercase tracking-wide">
-              Record Mobilized Student
+              Mobilize Student
             </h2>
             <p className="text-xs text-purple-200/70 mt-0.5">
-              Works both online and off internet. Auto-saves & resets for the next person.
+              Enter student name and telephone number. Auto-saves and clears for the next person.
             </p>
           </div>
-          <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-gradient-to-r from-[#ff4d46]/30 to-[#e63548]/30 text-white border border-[#ff4d46]/50 shadow-sm">
-            Rapid Flow
-          </span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/10 hover:bg-white/15 rounded-xl text-xs font-semibold text-purple-100 border border-white/15 transition shadow-xs"
+              title="Mobilizer Name — identifies your entries on the Admin dashboard"
+            >
+              <User className="w-3.5 h-3.5 text-[#ff8f8f] shrink-0" />
+              <span className="text-[10px] text-purple-300 uppercase tracking-wider font-bold hidden sm:inline">Worker:</span>
+              <input
+                type="text"
+                value={mobilizerName}
+                onChange={(e) => handleMobilizerNameChange(e.target.value)}
+                placeholder="Worker Name"
+                className="bg-transparent border-none text-white text-xs font-bold w-16 sm:w-20 focus:w-28 focus:outline-hidden transition-all placeholder-purple-300/40"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="p-2 text-purple-200 hover:text-white bg-white/10 hover:bg-white/15 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold border border-white/10"
+              title={soundEnabled ? 'Chime sound enabled' : 'Chime sound muted'}
+            >
+              {soundEnabled ? (
+                <Volume2 className="w-4 h-4 text-[#ff6666]" />
+              ) : (
+                <VolumeX className="w-4 h-4 text-purple-400" />
+              )}
+              <span className="hidden sm:inline">{soundEnabled ? 'Chime' : 'Mute'}</span>
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Mobilisation Setup Row: Mobiliser Name & Strategy (Persisted in browser) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[#1e1338]/90 rounded-2xl border border-purple-400/25">
-            <div>
-              <label
-                htmlFor="mobiliser-name-input"
-                className="block text-[11px] font-black text-purple-200 uppercase tracking-wider mb-1"
-              >
-                NAME OF MOBILISER <span className="text-[#ff4d46]">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="mobiliser-name-input"
-                  type="text"
-                  value={mobilizerName}
-                  onChange={(e) => handleMobilizerNameChange(e.target.value)}
-                  placeholder="e.g. Airin"
-                  className="w-full px-3 py-2 bg-black/40 border border-purple-400/30 rounded-xl text-white text-xs font-semibold placeholder-purple-300/40 focus:outline-hidden focus:ring-1 focus:ring-[#ff4d46]"
-                  title="Your name as mobilizer - saved on your device"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="strategy-select"
-                className="block text-[11px] font-black text-purple-200 uppercase tracking-wider mb-1"
-              >
-                STRATEGY USED <span className="text-[#ff4d46]">*</span>
-              </label>
-              <select
-                id="strategy-select"
-                value={mobilizationMethod}
-                onChange={(e) => handleStrategyChange(e.target.value)}
-                className="w-full px-3 py-2 bg-black/40 border border-purple-400/30 rounded-xl text-white text-xs font-semibold focus:outline-hidden focus:ring-1 focus:ring-[#ff4d46] cursor-pointer"
-              >
-                {STRATEGY_PRESETS.map((s) => (
-                  <option key={s} value={s} className="bg-[#1f1338] text-white">
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           {/* Field 1: Students Mobilised (Student Full Name) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -539,7 +454,7 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
                 htmlFor="telephone-input"
                 className="block text-xs font-bold text-purple-200 uppercase tracking-wider"
               >
-                PHONE NUMBER <span className="text-[#ff4d46]">*</span>
+                TELEPHONE NUMBER <span className="text-[#ff4d46]">*</span>
               </label>
               {carrierTag && (
                 <span className="text-[11px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-lg border border-emerald-400/30 animate-fade-in">
@@ -587,46 +502,6 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
             </div>
           </div>
 
-          {/* Field 3: Needs Transport (Defaults to 'yes' as in Excel template) */}
-          <div className="p-3 bg-[#1e1338]/80 rounded-2xl border border-purple-400/20 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Car className="w-4 h-4 text-[#ff7575]" />
-              <div>
-                <span className="block text-xs font-bold text-purple-100 uppercase tracking-wider">
-                  NEEDS TRANSPORT
-                </span>
-                <span className="text-[10px] text-purple-300/60">
-                  Required in GIC 2026 Mobilisation Template
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10">
-              <button
-                type="button"
-                onClick={() => setNeedsTransport('yes')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  needsTransport === 'yes'
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm'
-                    : 'text-purple-300 hover:text-white'
-                }`}
-              >
-                ✓ Yes
-              </button>
-              <button
-                type="button"
-                onClick={() => setNeedsTransport('no')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  needsTransport === 'no'
-                    ? 'bg-[#ff4d46] text-white shadow-sm'
-                    : 'text-purple-300 hover:text-white'
-                }`}
-              >
-                No
-              </button>
-            </div>
-          </div>
-
           {/* Validation Error Alert */}
           {validationError && (
             <div className="p-3.5 bg-rose-500/20 border border-rose-500/40 rounded-2xl text-rose-200 text-xs sm:text-sm font-medium flex items-center gap-2">
@@ -665,7 +540,7 @@ export const MobilizationForm: React.FC<MobilizationFormProps> = ({
                   }}
                   className="px-3 py-1.5 bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-xl text-xs font-semibold transition cursor-pointer"
                 >
-                  Save to Offline Outbox
+                  Save Offline
                 </button>
               </div>
             </div>

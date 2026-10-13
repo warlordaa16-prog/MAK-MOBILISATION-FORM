@@ -334,7 +334,7 @@ export class OfflineQueueService {
           const link = document.createElement('a');
           link.href = url;
           const ext = format === 'xlsx' ? 'xlsx' : (format === 'csv' ? 'csv' : 'json');
-          link.download = `GIC 2026 Mobilisation Template - KIU.${ext}`;
+          link.download = `Catch_the_Fire_to_GIC_Mobilization_KIU.${ext}`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -368,7 +368,7 @@ export class OfflineQueueService {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `GIC 2026 Mobilisation Template - KIU.json`;
+      link.download = `Catch_the_Fire_Records_${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -376,25 +376,22 @@ export class OfflineQueueService {
       return;
     }
 
-    // Exact GIC 2026 Mobilisation Template CSV matching the user's Excel layout
-    const row1 = `"GIC 2026 MOBILISATION TEMPLATE",,,,`;
-    const row2 = `"NAME OF CAMPUS: KAMPALA INTERNATIONAL UNIVERSITY (KIU)",,,,`;
-    const row3 = `"NAME OF MOBILISER","STRATEGY USED","STUDENTS MOBILISED","PHONE NUMBER","NEEDS TRANSPORT"`;
+    // Catch the Fire to GIC Mobilization CSV layout
+    const row1 = `"Catch the Fire to GIC Mobilization, Kampala International University",,`;
+    const row2 = `"NO.","STUDENTS MOBILISED","TELEPHONE NUMBER"`;
     
-    const rows = combined.map((e) => [
-      `"${(e.mobilizerName || 'Airin').replace(/"/g, '""')}"`,
-      `"${(e.mobilizationMethod || 'Call centre').replace(/"/g, '""')}"`,
+    const rows = combined.map((e, idx) => [
+      idx + 1,
       `"${(e.fullName || '').replace(/"/g, '""')}"`,
       `"${e.telephone}"`,
-      `"${(e.needsTransport || 'yes').replace(/"/g, '""')}"`,
     ]);
 
-    const csvContent = '\uFEFF' + [row1, row2, row3, ...rows.map((r) => r.join(','))].join('\r\n');
+    const csvContent = '\uFEFF' + [row1, row2, ...rows.map((r) => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `GIC 2026 Mobilisation Template - KIU.csv`;
+    link.download = `Catch_the_Fire_to_GIC_Mobilization_KIU.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

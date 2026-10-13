@@ -112,70 +112,43 @@ export default function App() {
     <div className="min-h-screen bg-[#24173d] text-slate-100 font-sans flex flex-col relative selection:bg-[#ff4f46] selection:text-white bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,53,178,0.35),rgba(36,23,61,0))]">
       {/* App Header */}
       <Header
-        selectedUniversity={selectedUniversity}
-        onSwitchUniversity={handleSwitchUniversity}
         onOpenAdmin={() => setIsAdminOpen(true)}
         isAdminLoggedIn={isAdminLoggedIn}
-        onOpenOutbox={() => setIsOutboxOpen(true)}
       />
 
-      {/* Offline Alert & Background Sync Banner */}
-      <OfflineIndicator onSyncComplete={fetchTelemetry} />
+      {/* Main Fast Mobilizer Workspace */}
+      <main className="flex-1 w-full max-w-2xl mx-auto px-3 sm:px-6 py-6 space-y-4">
+        {/* Rapid-Fire Data Entry Form (Only Student Name and Phone Number) */}
+        <MobilizationForm
+          selectedUniversity={selectedUniversity || 'Kampala International University (KIU)'}
+          onSwitchUniversity={handleSwitchUniversity}
+          onEntrySaved={handleEntrySaved}
+        />
 
-      {/* Offline Outbox Modal */}
-      <OfflineOutboxModal
-        isOpen={isOutboxOpen}
-        onClose={() => setIsOutboxOpen(false)}
-        onSyncSuccess={fetchTelemetry}
-      />
+        {/* Clean Session Mobilization Counter */}
+        <SessionCounter
+          count={sessionCount}
+          selectedUniversity={selectedUniversity || 'Kampala International University (KIU)'}
+          onResetCounter={() => {
+            OfflineQueueService.resetSessionCounter();
+            setSessionCount(0);
+          }}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 py-6 space-y-6">
-        {!selectedUniversity ? (
-          /* Step 1: Select University Once */
-          <UniversitySelector
-            selectedUniversity={selectedUniversity}
-            onSelect={handleUniversitySelect}
-          />
-        ) : (
-          /* Step 2: High-Speed Mobilization Workflow */
-          <div className="space-y-6">
-            {/* Session Counter */}
-            <SessionCounter
-              count={sessionCount}
-              selectedUniversity={selectedUniversity}
-              onResetCounter={() => {
-                OfflineQueueService.resetSessionCounter();
-                setSessionCount(0);
-              }}
-            />
-
-            {/* Rapid-Fire Data Entry Form */}
-            <MobilizationForm
-              selectedUniversity={selectedUniversity}
-              onSwitchUniversity={handleSwitchUniversity}
-              onEntrySaved={handleEntrySaved}
-            />
-
-            {/* Multi-Method University Summation */}
-            <DataSummation
-              selectedUniversity={selectedUniversity}
-              onSelectUniversity={handleUniversitySelect}
-              sessionCount={sessionCount}
-              lastSavedEntry={recentEntries[0] || null}
-            />
-
-            {/* Recent Entries List */}
-            <RecentEntriesList entries={recentEntries} />
-          </div>
-        )}
+        {/* Recently Mobilized Students */}
+        <RecentEntriesList entries={recentEntries} />
       </main>
 
-      {/* Modern Frosted Dark Purple Footer */}
-      <footer className="w-full border-t border-purple-900/40 bg-[#1a112e]/90 backdrop-blur-md py-5 text-center text-xs text-purple-200/70">
-        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="font-medium text-purple-100">Kampala International University (KIU) Mobilization System</span>
-          <span className="text-purple-300/80">Central Real-Time Google Sheets Integration</span>
+      {/* Clean Minimalist Footer */}
+      <footer className="w-full border-t border-purple-900/40 bg-[#1a112e]/90 backdrop-blur-md py-4 text-center text-xs text-purple-200/60">
+        <div className="max-w-2xl mx-auto px-4 flex items-center justify-between text-[11px]">
+          <span>Mobilization Portal</span>
+          <button
+            onClick={() => setIsAdminOpen(true)}
+            className="text-purple-300 hover:text-white font-semibold transition cursor-pointer"
+          >
+            Admin Portal Access
+          </button>
         </div>
       </footer>
 
